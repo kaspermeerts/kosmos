@@ -17,7 +17,6 @@
 
 static void calcfps(void);
 
-Quaternion orientation = {1.0, 0.0, 0.0, 0.0};
 ALLEGRO_DISPLAY *dpy;
 GLuint shaderProgram;
 
@@ -29,6 +28,8 @@ GLfloat material_ambient[3] = {0.25, 0.20725, 0.20725};
 GLfloat material_diffuse[3] = {1, 0.829, 0.829};
 GLfloat material_specular[3] = {0.296648, 0.296648, 0.296648};
 GLfloat shininess = 0.088*128;
+
+float theta = 0.0;
 
 const char *vertexSource = 
 "#version 330 core\n"
@@ -171,9 +172,9 @@ int init_shaders()
 int main(void)
 {
 	Camera cam;
-	Vec3 pos = {0.0, 0.0, 5};
+	Vec3 position = {0.0, 0.0, 5};
 	Vec3 up =  {0.0, 1.0, 0.0};
-	Vec3 center = {0.0, 0.0, 0.0};
+	Vec3 target = {1.0, 0.0, 0.0};
 	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
 	GLuint vbo_vertices, vbo_indices, vbo_normals;
 	GLint proj_unif, view_unif;
@@ -234,8 +235,9 @@ int main(void)
 	cam.aspect = 4./3;
 	cam.zNear = 1;
 	cam.zFar = 100;
-	cam_projection_matrix(&cam, projectionMatrix);
+	cam_lookat(&cam, position, target, up);
 
+	cam_projection_matrix(&cam, projectionMatrix);
 	proj_unif = glGetUniformLocation(shaderProgram, "projection_matrix");
 	glmUniformMatrix(proj_unif, projectionMatrix);
 
@@ -274,8 +276,7 @@ int main(void)
 			case ALLEGRO_EVENT_MOUSE_AXES:
 				al_get_mouse_state(&state);
 				if (state.buttons & 1)
-					orientation = quaternion_trackball(orientation, 
-							ev.mouse.dx, -ev.mouse.dy);
+					cam_orbit(&cam, ev.mouse.dx, -ev.mouse.dy);
 				/* The y coordinate needs to be inverted because OpenGL has
 				 * the origin in the lower-left and Allegro the upper-left */
 				break;
@@ -288,12 +289,10 @@ int main(void)
 			}
 		}
 		
-		
 		glmLoadIdentity(modelviewMatrix);
-		cam_lookat(&cam, pos, center, up);
-		cam_view_matrix(&cam, modelviewMatrix);
-		glmScaleUniform(modelviewMatrix, 0.015);
-		mat_mul_quaternion(modelviewMatrix, orientation);
+		cam_view_matrix(&cam, modelviewMatrix); /* view */
+		glmTranslate(modelviewMatrix, 1, 0, 0);
+		glmScaleUniform(modelviewMatrix, 0.015); /* model */
 		glmUniformMatrix(view_unif, modelviewMatrix);
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

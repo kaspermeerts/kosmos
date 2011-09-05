@@ -1,6 +1,7 @@
 #include <math.h>
 
 #include "quaternion.h"
+#include "vector.h"
 
 /* Square of the norm of the quaternion */
 double quat_length2(Quaternion p)
@@ -79,14 +80,14 @@ Quaternion quat_from_angle_axis(double angle, double ax,
 	return q;
 }
 
-Quaternion quaternion_trackball(Quaternion orientation, int dx, int dy)
+Quaternion quat_trackball(int dx, int dy)
 {
-	const float R_BALL = 50;
+	const float R_BALL = 50; /* FIXME: Configuration or function argument */
 	float dr, sina, cosa, sina2, cosa2;
-	Quaternion q;
+	Quaternion q = {1, 0, 0, 0};
 
 	if (dx == 0 && dy == 0)
-		return orientation;
+		return q;
 
 	dr = sqrt(dx*dx + dy*dy);
 
@@ -103,7 +104,22 @@ Quaternion quaternion_trackball(Quaternion orientation, int dx, int dy)
 	q.y = dx/dr * sina2;
 	q.z = 0;
 
-	orientation = quat_multiply(q, orientation);
+	return q;
+}
 
-	return orientation;
+Vec3 quat_transform_vector(Quaternion q, Vec3 v)
+{
+	Vec3 v2;
+	Quaternion p = {0, v.x, v.y, v.z};
+	Quaternion q2 = quat_conjugate(q);
+	Quaternion p2;
+
+	p2 = quat_multiply(q, p);
+	p2 = quat_multiply(p2, q2);
+
+	v2.x = p2.x;
+	v2.y = p2.y;
+	v2.z = p2.z;
+
+	return v2;
 }
