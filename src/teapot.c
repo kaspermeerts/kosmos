@@ -85,7 +85,7 @@ const char *fragmentSource =
 ""
 "}";
 
-int init_allegro(void)
+int init_allegro(Camera *cam)
 {
 	if (!al_init())
 		return 1;
@@ -99,7 +99,8 @@ int init_allegro(void)
 	
 	al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
 
-	dpy = al_create_display(1024, 768);
+	dpy = al_create_display(cam->x + cam->width, cam->y + cam->height);
+	glViewport(cam->x, cam->y, cam->width, cam->height);
 
 	return 0;
 }
@@ -172,16 +173,23 @@ int init_shaders()
 int main(void)
 {
 	Camera cam;
-	Vec3 position = {0.0, 0.0, 5};
+	Vec3 position = {0.0, 0.0, 0};
 	Vec3 up =  {0.0, 1.0, 0.0};
-	Vec3 target = {1.0, 0.0, 0.0};
+	Vec3 target = {0.0, 0.0, 0.0};
 	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
 	GLuint vbo_vertices, vbo_indices, vbo_normals;
 	GLint proj_unif, view_unif;
 	GLint pos_attr, nor_attr;
 	bool wireframe = false;
 
-	init_allegro();
+	cam.fov = M_PI/12;
+	cam.x = 0;
+	cam.y = 0;
+	cam.width = 1024;
+	cam.height = 768;
+	cam.zNear = 1;
+	cam.zFar = 100;
+	init_allegro(&cam);
 
 	ev_queue = al_create_event_queue();
 	al_register_event_source(ev_queue, al_get_display_event_source(dpy));
@@ -231,12 +239,6 @@ int main(void)
 		
 
 	/* Transformation matrices */
-	cam.fov = M_PI/12;
-	cam.aspect = 4./3;
-	cam.zNear = 1;
-	cam.zFar = 100;
-	cam_lookat(&cam, position, target, up);
-
 	cam_projection_matrix(&cam, projectionMatrix);
 	proj_unif = glGetUniformLocation(shaderProgram, "projection_matrix");
 	glmUniformMatrix(proj_unif, projectionMatrix);
@@ -288,10 +290,16 @@ int main(void)
 				break;
 			}
 		}
+
+		theta += 0.01;
+		target.x = 5 * cos(theta);
+		target.y = 0;
+		target.z = 5 * sin(theta);
+		cam_lookat(&cam, position, target, up);
 		
 		glmLoadIdentity(modelviewMatrix);
 		cam_view_matrix(&cam, modelviewMatrix); /* view */
-		glmTranslate(modelviewMatrix, 1, 0, 0);
+		glmTranslate(modelviewMatrix, target.x, target.y, target.z);
 		glmScaleUniform(modelviewMatrix, 0.015); /* model */
 		glmUniformMatrix(view_unif, modelviewMatrix);
 		
