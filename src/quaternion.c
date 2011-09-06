@@ -80,10 +80,9 @@ Quaternion quat_from_angle_axis(double angle, double ax,
 	return q;
 }
 
-Quaternion quat_trackball(int dx, int dy)
+Quaternion quat_trackball(int dx, int dy, double radius)
 {
-	const float R_BALL = 50; /* FIXME: Configuration or function argument */
-	float dr, sina, cosa, sina2, cosa2;
+	double dr, sina, cosa, sina2, cosa2;
 	Quaternion q = {1, 0, 0, 0};
 
 	if (dx == 0 && dy == 0)
@@ -91,7 +90,7 @@ Quaternion quat_trackball(int dx, int dy)
 
 	dr = sqrt(dx*dx + dy*dy);
 
-	sina = dr/R_BALL;
+	sina = dr/radius;
 	if (sina >= 1)
 		sina = 0;
 	cosa = sqrt(1 - sina*sina);
@@ -101,7 +100,7 @@ Quaternion quat_trackball(int dx, int dy)
 
 	q.w = cosa2;
 	q.x = -dy/dr * sina2;
-	q.y = dx/dr * sina2;
+	q.y =  dx/dr * sina2;
 	q.z = 0;
 
 	return q;

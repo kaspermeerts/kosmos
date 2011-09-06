@@ -173,9 +173,9 @@ int init_shaders()
 int main(void)
 {
 	Camera cam;
-	Vec3 position = {0.0, 0.0, 0};
-	Vec3 up =  {0.0, 1.0, 0.0};
-	Vec3 target = {0.0, 0.0, 0.0};
+	Vec3 position = {0, 0, 0};
+	Vec3 up =  {0, 1, 0};
+	Vec3 target;
 	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
 	GLuint vbo_vertices, vbo_indices, vbo_normals;
 	GLint proj_unif, view_unif;
@@ -185,11 +185,12 @@ int main(void)
 	cam.fov = M_PI/12;
 	cam.x = 0;
 	cam.y = 0;
-	cam.width = 1024;
-	cam.height = 768;
+	cam.width = 800;
+	cam.height = 600;
 	cam.zNear = 1;
 	cam.zFar = 100;
 	init_allegro(&cam);
+	cam_lookat(&cam, position, target, up);
 
 	ev_queue = al_create_event_queue();
 	al_register_event_source(ev_queue, al_get_display_event_source(dpy));
@@ -292,11 +293,11 @@ int main(void)
 		}
 
 		theta += 0.01;
-		target.x = 5 * cos(theta);
-		target.y = 0;
-		target.z = 5 * sin(theta);
+		target.x = 5*cos(theta);
+		target.y = 5*cos(theta*1.414);
+		target.z = 5*sin(theta);
 		cam_lookat(&cam, position, target, up);
-		
+
 		glmLoadIdentity(modelviewMatrix);
 		cam_view_matrix(&cam, modelviewMatrix); /* view */
 		glmTranslate(modelviewMatrix, target.x, target.y, target.z);

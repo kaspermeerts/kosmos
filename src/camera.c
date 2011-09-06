@@ -14,21 +14,47 @@ void cam_lookat(Camera *cam, Vec3 pos, Vec3 target, Vec3 up)
 	/* Create an orthonormal basis */
 	forward = vec3_normalize(vec3_sub(target, pos));
 	side    = vec3_normalize(vec3_cross(forward, up));
-	up      = vec3_normalize(vec3_cross(side, forward)); /* FIXME: Already normalized */
+	up      = vec3_cross(side, forward); /* Already normalized */
 
 	/* Create a quaternion out of these */
-	/* FIXME: Numerically unstable */
 	Quaternion q;
-	double trace, w4r;
+	double T;
 	
-	trace = side.x + up.y - forward.z;
-	if (trace < -1 + 1e-3)
-		printf("TRACE UNDERFLOW\n");
-	q.w = 0.5*sqrt(1 + trace);
-	w4r = 1 / ( 4*q.w);
-	q.x = -((-forward.y) - up.z     ) * w4r;
-	q.y = -( side.z    - (-forward.x)) * w4r;
-	q.z = -( up.x      - side.y   ) * w4r;
+	/* To understand this, research "convert orthogonal matrix to quaternion"
+	 * This algorithm comes from "The Matrix and Quaternion FAQ" */
+	forward = vec3_scale(forward, -1); /* We are looking down on the z-axis */
+	T = 1 + side.x + up.y + forward.z;
+	if ( 0)
+	{
+		q.w = 0.5*sqrt(T);
+		q.x = -(forward.y - up.z     ) / (4*q.w);
+		q.y = -( side.z    - forward.x) / (4*q.w);
+		q.z = -( up.x      - side.y   ) / (4*q.w);
+	} else 
+	{
+		if (side.x > up.y && side.x > forward.z)
+		{
+			T = sqrt(1 + side.x - up.y - forward.z);
+			q.w = (up.z - forward.y) / (2*T);
+			q.x = 0.5*T;
+			q.y = (up.x + side.y) / (2*T);
+			q.z = (forward.x + side.z) / (2*T);
+		} else if (up.y > forward.z)
+		{
+			T = sqrt(1 - side.x + up.y - forward.z);
+			q.w = (forward.x - side.z) / (2*T);
+			q.x = (up.x + side.y) / (2*T);
+			q.y = 0.5*T;
+			q.z = (forward.y + up.z) / (2*T);
+		} else
+		{
+			T = sqrt(1 - side.x - up.y + forward.z);
+			q.w = (side.y - up.x) / (2*T);
+			q.x = (forward.x + side.z) / (2*T);
+			q.y = (forward.y + up.z) / (2*T);
+			q.z = 0.5*T;
+		}
+	}
 
 	cam->target = target;
 	cam->position = pos;
@@ -37,7 +63,8 @@ void cam_lookat(Camera *cam, Vec3 pos, Vec3 target, Vec3 up)
 
 void cam_projection_matrix(const Camera *cam, Matrix *proj)
 {
-	glmPerspective(proj, cam->fov, cam->aspect, cam->zNear, cam->zFar);
+	float aspect = (float) cam->width / (float)cam->height;
+	glmPerspective(proj, cam->fov, aspect, cam->zNear, cam->zFar);
 }
 
 void cam_view_matrix(const Camera *cam, Matrix *view)
@@ -52,22 +79,29 @@ void cam_view_matrix(const Camera *cam, Matrix *view)
 
 void cam_orbit(Camera *cam, int dx, int dy)
 {
-	/* FIXME: Cleanup */
-	/* FIXME: Drift */
-	Quaternion q, q2;
+	/* FIXME: min max routines */
+	const double radius = (cam->width < cam->height ? cam->width : cam->height)/2;
+	double distance;
+	Vec3 v = vec3_sub(cam->position, cam->target);
 	Quaternion o = cam->orientation;
-	Vec3 v;
+	Quaternion q, q2;
 
-	/* Conjugate because camera is inverse FIXME: derp */
-	q = quat_conjugate(quat_trackball(dx, dy));
+	/* We invert the transformation because we are transforming the camera
+	 * and not the scene. */
+	q = quat_conjugate(quat_trackball(dx, dy, radius));
 
-	/* because of premultiplication ? FIXME */
+	/* The quaternion q gives us an intrinsic transformation, close to unity.
+	 * To make it extrinsic, we compute q2 = o * q * ~o */
 	q2 = quat_multiply(o, quat_multiply(q, quat_conjugate(o)));
 	q2 = quat_normalize(q2);
 
-	v = vec3_sub(cam->position, cam->target);
+	/* As round-off errors accumulate, the distance between the camera and the
+	 * target would normally fluctuate. We take steps to prevent that here. */
+	distance = vec3_length(v);
 	v = quat_transform_vector(q2, v);
-	cam->position = vec3_add(cam->target, v);
+	v = vec3_normalize(v);
+	v = vec3_scale(v, distance);
 
-	cam->orientation = quat_multiply(cam->orientation, q);
+	cam->position = vec3_add(cam->target, v);
+	cam->orientation = quat_multiply(q2, cam->orientation);
 }
