@@ -2,18 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "vecmath.h"
+#include "mathlib.h"
 #include "orbit.h"
-
-#ifndef TWO_PI
-#define TWO_PI 6.2831 /* XXX */
-#endif
 
 static double solve_kepler_equation(double ecc, double M)
 {
 	double E0, E1, E2, E3;
 
-	E0 = M;
+	E0 = M; /* FIXME */
 	E1 = M + ecc*sin(E0);
 	E2 = M + ecc*sin(E1);
 	E3 = M + ecc*sin(E2);
@@ -38,7 +34,7 @@ Vec3 position_at_time(Orbit orbit, double jd)
 {
 	double t = jd;
 	double M, E, mean_motion; /* true, mean and eccentric anomaly */
-	mean_motion = TWO_PI*t/orbit.period;
+	mean_motion = M_TWO_PI*t/orbit.period;
 	M = orbit.mean_anomaly + mean_motion;
 	E = solve_kepler_equation(orbit.eccentricity, M);
 

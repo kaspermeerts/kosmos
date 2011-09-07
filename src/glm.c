@@ -4,9 +4,8 @@
 #include <GL/glew.h>
 #include <GL/gl.h>
 
-#include "quaternion.h"
-#include "matrix.h"
 #include "glm.h"
+#include "mathlib.h"
 
 GLvoid glmUniformMatrix(GLint location, Matrix *mat)
 {

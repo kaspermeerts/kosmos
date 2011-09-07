@@ -3,7 +3,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "quaternion.h"
+#include "mathlib.h"
 #include "matrix.h"
 
 static void matrix_mul_matrix(double *prod, double *a, double *b);

@@ -2,9 +2,7 @@
 #include <math.h>
 
 #include "camera.h"
-#include "quaternion.h"
-#include "matrix.h"
-#include "vector.h"
+#include "mathlib.h"
 #include "glm.h"
 
 void cam_lookat(Camera *cam, Vec3 pos, Vec3 target, Vec3 up)
@@ -24,12 +22,12 @@ void cam_lookat(Camera *cam, Vec3 pos, Vec3 target, Vec3 up)
 	 * This algorithm comes from "The Matrix and Quaternion FAQ" */
 	forward = vec3_scale(forward, -1); /* We are looking down on the z-axis */
 	T = 1 + side.x + up.y + forward.z;
-	if ( 0)
+	if (T > 1e-3)
 	{
 		q.w = 0.5*sqrt(T);
-		q.x = -(forward.y - up.z     ) / (4*q.w);
-		q.y = -( side.z    - forward.x) / (4*q.w);
-		q.z = -( up.x      - side.y   ) / (4*q.w);
+		q.x = (up.z - forward.y) / (4*q.w);
+		q.y = (forward.x - side.z) / (4*q.w);
+		q.z = (side.y - up.x) / (4*q.w);
 	} else 
 	{
 		if (side.x > up.y && side.x > forward.z)
@@ -79,8 +77,7 @@ void cam_view_matrix(const Camera *cam, Matrix *view)
 
 void cam_orbit(Camera *cam, int dx, int dy)
 {
-	/* FIXME: min max routines */
-	const double radius = (cam->width < cam->height ? cam->width : cam->height)/2;
+	const double radius = MIN(cam->width, cam->height)/2;
 	double distance;
 	Vec3 v = vec3_sub(cam->position, cam->target);
 	Quaternion o = cam->orientation;

@@ -1,7 +1,7 @@
 #ifndef _ORBIT_H_
 #define _ORBIT_H_
 
-#include "vecmath.h"
+#include "mathlib.h"
 
 typedef struct Orbit {
 	double eccentricity;
@@ -12,8 +12,7 @@ typedef struct Orbit {
 	double mean_anomaly;
 
 	double period;
-
-	Mat3 orientation_matrix;
+	Mat3 plane_orientation;
 } Orbit;
 
 Vec3 position_at_time(Orbit, double);

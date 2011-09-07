@@ -2,7 +2,7 @@
 #define _GLM_H_
 
 #include <GL/gl.h>
-#include "matrix.h"
+#include "mathlib.h"
 
 GLvoid glmLoadIdentity(Matrix *mat);
 Matrix *glmNewMatrixStack(GLvoid);

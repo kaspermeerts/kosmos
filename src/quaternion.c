@@ -1,7 +1,7 @@
 #include <math.h>
 
+#include "mathlib.h"
 #include "quaternion.h"
-#include "vector.h"
 
 /* Square of the norm of the quaternion */
 double quat_length2(Quaternion p)

@@ -18,7 +18,6 @@ Matrix *mat_pop(Matrix *mat);
 void mat_load(Matrix *mat, double m[16]);
 void mat_mul(Matrix *a, double m[16]);
 void mat_transpose(Matrix *mat);
-void mat_transform_vector(double m[16], double a[4], double b[4]);
 void mat_mul_quaternion(Matrix *mat, Quaternion q);
 
 #endif

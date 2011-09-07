@@ -294,7 +294,7 @@ int main(void)
 
 		theta += 0.01;
 		target.x = 5*cos(theta);
-		target.y = 5*cos(theta*1.414);
+		target.y = 0;
 		target.z = 5*sin(theta);
 		cam_lookat(&cam, position, target, up);
 
