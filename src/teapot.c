@@ -31,60 +31,6 @@ GLfloat shininess = 0.088*128;
 
 float theta = 0.0;
 
-const char *vertexSource = 
-"#version 330 core\n"
-"\n"
-"uniform mat4 projection_matrix;"
-"uniform mat4 modelview_matrix;"
-"uniform vec3 light_dir;"
-"uniform vec3 mat_ambient, mat_diffuse, mat_specular;"
-"uniform float shininess;"
-""
-"in vec4 in_position;"
-"in vec3 in_normal;"
-""
-"out vec3 L, E, vertNormal;"
-""
-"void main(void)"
-"{"
-"	vec4 eye_pos = modelview_matrix * in_position;"
-"	gl_Position = projection_matrix * eye_pos;"
-""
-"	mat3 normal_matrix = inverse(transpose(mat3(modelview_matrix)));"
-"	L = normalize(mat3(modelview_matrix) * light_dir);"
-"	E = -normalize(eye_pos.xyz);"
-"	vertNormal = normal_matrix * in_normal;"
-"}"
-;
-
-const char *fragmentSource =
-"#version 330 core\n"
-"\n"
-"uniform mat4 projection_matrix;"
-"uniform mat4 modelview_matrix;"
-"uniform vec3 light_dir;"
-"uniform vec3 mat_ambient, mat_diffuse, mat_specular;"
-"uniform float shininess;"
-""
-"in vec3 L, E, vertNormal;"
-""
-"out vec4 fragColour;"
-""
-"void main(void)"
-"{"
-"	vec3 N, R;"
-"	float NdotL, RdotE;"
-""
-"	N = normalize(vertNormal);"
-"	R = reflect(-L, N);"
-"	NdotL = max(dot(N, L), 0);"
-"	RdotE = max(dot(R, E), 0);"
-""
-"	fragColour = vec4(mat_ambient + NdotL * mat_diffuse +"
-"			pow(RdotE, shininess) * mat_specular, 1);"
-""
-"}";
-
 int init_allegro(Camera *cam)
 {
 	if (!al_init())
@@ -143,22 +89,45 @@ void show_info_log(GLuint object, PFNGLGETSHADERIVPROC glGet__iv,
 
 int init_shaders()
 {
+	ALLEGRO_FILE *file;
+	int64_t filesize;
+	char *source;
 	GLuint vertexShader, fragmentShader;
 	GLint linked;
 
 	shaderProgram = glCreateProgram();
 
+	file = al_fopen("../../src/teapot.v.glsl", "rb");
+	filesize = al_fsize(file);
+	if (filesize == -1)
+		return 1;
+	else
+		source = malloc(filesize + 1);
+	al_fread(file, source, filesize);
+	source[filesize] = '\0';
 	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, (const GLchar **) &vertexSource, 0);
+	glShaderSource(vertexShader, 1, (const GLchar **) &source, 0);
 	glCompileShader(vertexShader);
 	show_info_log(vertexShader, glGetShaderiv, glGetShaderInfoLog);
 	glAttachShader(shaderProgram, vertexShader);
+	al_fclose(file);
+	free(source);
 
+	file = al_fopen("../../src/teapot.f.glsl", "rb");
+	filesize = al_fsize(file);
+	if (filesize == -1)
+		return 1;
+	else
+		source = malloc(filesize + 1);
+	al_fread(file, source, filesize);
+	source[filesize] = '\0';
 	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, (const GLchar **) &fragmentSource, 0);
+	glShaderSource(fragmentShader, 1, (const GLchar **) &source, 0);
 	glCompileShader(fragmentShader);
 	show_info_log(fragmentShader, glGetShaderiv, glGetShaderInfoLog);
 	glAttachShader(shaderProgram, fragmentShader);
+	free(source);
+
 
 	glBindFragDataLocation(shaderProgram, 0, "fragColour");
 
