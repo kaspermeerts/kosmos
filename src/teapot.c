@@ -45,7 +45,7 @@ int init_allegro(Camera *cam)
 	al_set_new_display_flags(ALLEGRO_WINDOWED | 
 			ALLEGRO_OPENGL_FORWARD_COMPATIBLE);
 	
-	al_set_new_display_option(ALLEGRO_VSYNC, 0, ALLEGRO_SUGGEST);
+	al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
 
 	dpy = al_create_display(cam->x + cam->width, cam->y + cam->height);
 	glViewport(cam->x, cam->y, cam->width, cam->height);
@@ -182,6 +182,8 @@ int main(void)
 
 	/* Make buffers */
 	mesh = mesh_import(STRINGIFY(ROOT_PATH) "/data/teapot.ply");
+	if (mesh == NULL)
+		return 1;
 
 	mesh_upload_to_gpu(mesh, shaderProgram);
 
@@ -248,10 +250,10 @@ int main(void)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		if (wireframe)
 			glDrawRangeElements(GL_LINES, 0, mesh->num_vertices - 1, 
-				mesh->num_triangles*3, GL_UNSIGNED_SHORT, NULL);
+				mesh->num_triangles*3, GL_UNSIGNED_INT, NULL);
 		else
 			glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1,
-				mesh->num_triangles*3, GL_UNSIGNED_SHORT, NULL);
+				mesh->num_triangles*3, GL_UNSIGNED_INT, NULL);
 
 		al_flip_display();
 		calcfps();

@@ -18,6 +18,7 @@ enum vertex_props {
 
 extern char *strdup(const char *s); /* FIXME */
 
+static bool mesh_load_ply(Mesh *mesh, const char *filename);
 static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
 static void generate_normals(Mesh *mesh);
@@ -26,38 +27,37 @@ static Normal calc_face_normal(Vertex v1, Vertex v2, Vertex v3);
 Mesh *mesh_import(const char *filename)
 {
 	Mesh *mesh;
-	p_ply ply;
 	const char *tail;
-
-	ply = ply_open(filename, NULL);
-	if (ply == NULL)
-		return NULL;
-	if (ply_read_header(ply) == 0)
-		return NULL;
 
 	mesh = malloc(sizeof(Mesh));
 
 	tail = strrchr(filename, '/');
-	mesh->name = strdup((tail ? tail + 1 : filename));
-	if (mesh_load_ply(mesh, ply) == false)
+	/* TODO: Other fileformats */
+	if (mesh_load_ply(mesh, filename) == false)
 	{
-		/* TODO: log */
+		fprintf(stderr, "Couldn't load model at %s: not in PLY format\n", 
+				filename);
 		free(mesh);
-		mesh = NULL;
+		return NULL;
 	}
 
-	generate_normals(mesh);
-
-	ply_close(ply);
+	mesh->name = strdup((tail ? tail + 1 : filename));
+	generate_normals(mesh); /* FIXME: What if we already have normals? */
 
 	return mesh;
 }
 
-bool mesh_load_ply(Mesh *mesh, p_ply ply)
+static bool mesh_load_ply(Mesh *mesh, const char *filename)
 {
+	p_ply ply = NULL;
 	p_ply_element element = NULL;
+	bool succes = false;
 
-	/* TODO: Decent error handling */
+	if ((ply = ply_open(filename, NULL)) == NULL)
+		goto out;
+	if (ply_read_header(ply) == 0)
+		goto out;
+
 	while((element = ply_get_next_element(ply, element)) != NULL)
 	{
 		const char *name;
@@ -72,6 +72,10 @@ bool mesh_load_ply(Mesh *mesh, p_ply ply)
 		{
 			mesh->num_triangles = ninstances;
 			mesh->triangle = calloc(ninstances, sizeof(Triangle));
+		} else
+		{
+			fprintf(stderr, "Unknown element: %s\n", name);
+			goto out;
 		}
 	}
 
@@ -80,8 +84,13 @@ bool mesh_load_ply(Mesh *mesh, p_ply ply)
 	ply_set_read_cb(ply, "vertex", "z", vertex_cb, mesh, (long) PROP_Z);
 	ply_set_read_cb(ply, "face", "vertex_indices", face_cb, mesh, 0);
 
-	ply_read(ply);
-	return true;
+	if (ply_read(ply) == 1)
+		succes = true;
+
+out:
+	if (ply != NULL)
+		ply_close(ply);
+	return succes;
 }
 
 static int vertex_cb(p_ply_argument argument)
@@ -236,5 +245,3 @@ static Normal calc_face_normal(Vertex p1, Vertex p2, Vertex p3)
 
 	return n;
 }
-
-

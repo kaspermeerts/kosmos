@@ -34,4 +34,5 @@ void mesh_upload_to_gpu(Mesh *mesh, GLuint program)
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->num_triangles * sizeof(Triangle),
 			mesh->triangle, GL_STATIC_DRAW);
 
+	return;
 }

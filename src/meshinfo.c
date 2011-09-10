@@ -26,6 +26,8 @@ int main(int argc, char **argv)
 	filename = argv[1];
 
 	mesh = mesh_import(filename);
+	if (mesh == NULL)
+		return 1;
 
 	mesh_print(mesh);
 
