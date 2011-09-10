@@ -5,11 +5,13 @@
 #include <GL/glew.h>
 #include <allegro5/allegro.h>
 
-#include "quaternion.h"
+#define STRINGIFY(s) XSTRINGIFY(s)
+#define XSTRINGIFY(s) #s
+
+#include "mathlib.h"
 #include "glm.h"
-#include "teapot.h"
 #include "camera.h"
-#include "vector.h"
+#include "mesh.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846L
@@ -43,7 +45,7 @@ int init_allegro(Camera *cam)
 	al_set_new_display_flags(ALLEGRO_WINDOWED | 
 			ALLEGRO_OPENGL_FORWARD_COMPATIBLE);
 	
-	al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
+	al_set_new_display_option(ALLEGRO_VSYNC, 0, ALLEGRO_SUGGEST);
 
 	dpy = al_create_display(cam->x + cam->width, cam->y + cam->height);
 	glViewport(cam->x, cam->y, cam->width, cam->height);
@@ -97,7 +99,7 @@ int init_shaders()
 
 	shaderProgram = glCreateProgram();
 
-	file = al_fopen("../../src/teapot.v.glsl", "rb");
+	file = al_fopen(STRINGIFY(ROOT_PATH) "/src/teapot.v.glsl", "rb");
 	filesize = al_fsize(file);
 	if (filesize == -1)
 		return 1;
@@ -113,7 +115,7 @@ int init_shaders()
 	al_fclose(file);
 	free(source);
 
-	file = al_fopen("../../src/teapot.f.glsl", "rb");
+	file = al_fopen(STRINGIFY(ROOT_PATH) "/src/teapot.f.glsl", "rb");
 	filesize = al_fsize(file);
 	if (filesize == -1)
 		return 1;
@@ -142,20 +144,19 @@ int init_shaders()
 int main(void)
 {
 	Camera cam;
-	Vec3 position = {0, 0, 0};
+	Vec3 position = {0, 0, 5};
 	Vec3 up =  {0, 1, 0};
-	Vec3 target;
+	Vec3 target = {0, 0, 0};
 	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
-	GLuint vbo_vertices, vbo_indices, vbo_normals;
 	GLint proj_unif, view_unif;
-	GLint pos_attr, nor_attr;
 	bool wireframe = false;
+	Mesh *mesh;
 
 	cam.fov = M_PI/12;
 	cam.x = 0;
 	cam.y = 0;
-	cam.width = 800;
-	cam.height = 600;
+	cam.width = 1024;
+	cam.height = 768;
 	cam.zNear = 1;
 	cam.zFar = 100;
 	init_allegro(&cam);
@@ -177,36 +178,12 @@ int main(void)
 	glClearColor(100/255., 149/255., 237/255., 1.0);
 	glEnable(GL_DEPTH_TEST);
 	glDisable(GL_CULL_FACE);
-	glCullFace(GL_FRONT);
+	glCullFace(GL_BACK);
 
 	/* Make buffers */
-	glGenBuffers(1, &vbo_vertices);
-	glGenBuffers(1, &vbo_indices);
-	glGenBuffers(1, &vbo_normals);
+	mesh = mesh_import(STRINGIFY(ROOT_PATH) "/data/teapot.ply");
 
-	/* Indices: no attrib array necessary */
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo_indices);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(teapot_indices),
-			teapot_indices, GL_STATIC_DRAW);
-
-	/* Position vertices */
-	pos_attr = glGetAttribLocation(shaderProgram, "in_position");
-	glEnableVertexAttribArray(pos_attr);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo_vertices);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(teapot_vertices), 
-			teapot_vertices, GL_STATIC_DRAW);
-	glVertexAttribPointer(pos_attr, 3, GL_FLOAT, GL_FALSE,
-			0, (void *) (-3*4));
-
-	/* Normals */
-	nor_attr = glGetAttribLocation(shaderProgram, "in_normal");
-	glEnableVertexAttribArray(nor_attr);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo_normals);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(teapot_normals),
-			teapot_normals, GL_STATIC_DRAW);
-	glVertexAttribPointer(nor_attr, 3, GL_FLOAT, GL_FALSE,
-			0, (void *) (-3*4));
-		
+	mesh_upload_to_gpu(mesh, shaderProgram);
 
 	/* Transformation matrices */
 	cam_projection_matrix(&cam, projectionMatrix);
@@ -261,11 +238,6 @@ int main(void)
 			}
 		}
 
-		theta += 0.01;
-		target.x = 5*cos(theta);
-		target.y = 0;
-		target.z = 5*sin(theta);
-		cam_lookat(&cam, position, target, up);
 
 		glmLoadIdentity(modelviewMatrix);
 		cam_view_matrix(&cam, modelviewMatrix); /* view */
@@ -275,19 +247,16 @@ int main(void)
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		if (wireframe)
-			glDrawRangeElements(GL_LINES, 0, NUM_INDICES - 1, 
-				NUM_INDICES, GL_UNSIGNED_SHORT, NULL);
+			glDrawRangeElements(GL_LINES, 0, mesh->num_vertices - 1, 
+				mesh->num_triangles*3, GL_UNSIGNED_SHORT, NULL);
 		else
-			glDrawRangeElements(GL_TRIANGLES, 0, NUM_INDICES - 1,
-				NUM_INDICES, GL_UNSIGNED_SHORT, NULL);
+			glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1,
+				mesh->num_triangles*3, GL_UNSIGNED_SHORT, NULL);
 
 		al_flip_display();
 		calcfps();
 	}
 
-	glDeleteBuffers(1, &vbo_vertices);
-	glDeleteBuffers(1, &vbo_indices);
-	glDeleteBuffers(1, &vbo_normals);
 	glmFreeMatrixStack(projectionMatrix);
 	glmFreeMatrixStack(modelviewMatrix);
 	al_destroy_display(dpy);

@@ -1,35 +1,46 @@
 #ifndef _MESH_H_
 #define _MESH_H_
 
+#include <rply.h>
+#include <stdbool.h>
 #include <GL/gl.h>
 
 typedef struct Vertex {
 	GLfloat x, y, z;
-} Vertex;
+} __attribute__((packed)) Vertex;
 
 typedef Vertex Normal;
 
 typedef struct TexCoord {
 	GLfloat u, v;
-} TexCoord;
+} __attribute__((packed)) TexCoord;
 
 typedef struct Triangle {
-	GLuint vertex[3];
-	GLuint normal[3];
-	GLuint texcoord[3];
-} Triangle;
+	GLushort vertex[3];
+} __attribute__((packed)) Triangle ;
 
 typedef struct Mesh {
-	unsigned int num_vertices;
+	char *name;
+
+	int num_vertices;
 	Vertex *vertex;
-	unsigned int num_normals;
+	GLuint vertex_vbo;
+
+	int num_normals;
 	Normal *normal;
-	unsigned int num_texcoords;
+	GLuint normal_vbo;
+
+	int num_texcoords;
 	TexCoord *texcoord;
-	unsigned int num_triangles;
+	GLuint texcoord_vbo;
+
+	int num_triangles;
 	Triangle *triangle;
-	unsigned int num_groups; /* XXX */
+	GLuint triangle_vbo;
 } Mesh;
 
-Mesh *load_mesh(const char *filename);
+Mesh *mesh_import(const char *filename);
+bool mesh_load_ply(Mesh *mesh, p_ply ply);
+
+void mesh_upload_to_gpu(Mesh *mesh, GLuint program);
 #endif

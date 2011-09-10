@@ -9,6 +9,7 @@
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define ABS(x) ((a) > 0 ? (a) : -(a))
+#define SQUARE(x) ((x) * (x))
 
 #include "quaternion.h"
 #include "matrix.h"

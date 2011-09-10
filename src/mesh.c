@@ -1,340 +1,273 @@
 #include <ctype.h>
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <GL/glew.h>
 #include <GL/gl.h>
+#include <allegro5/allegro.h>
 
-#include "linereader.h"
+#include "mathlib.h"
 #include "mesh.h"
 
-/* Mesh loading code
- * Ugly but it's the only way */
-
-enum pass_num {
-	FIRST_PASS,
-	SECOND_PASS
+enum vertex_props {
+	PROP_X,
+	PROP_Y,
+	PROP_Z 
 };
 
-static int load_mesh_stream(Mesh *mesh, FILE *stream, enum pass_num);
-static int first_pass_line(Mesh *mesh, const char *line);
-static int second_pass_line(Mesh *mesh, const char *line);
-static int count_triangles(const char *line);
-static Vertex parse_vertex(const char *line);
-static Normal parse_normal(const char *line);
-static TexCoord parse_texcoord(const char *line);
-static int parse_triangles(Mesh *mesh, const char *line, int cur_triangle);
+extern char *strdup(const char *s); /* FIXME */
 
-int main(int argc, char **argv)
+static int vertex_cb(p_ply_argument argument);
+static int face_cb(p_ply_argument argument);
+static void generate_normals(Mesh *mesh);
+static Normal calc_face_normal(Vertex v1, Vertex v2, Vertex v3);
+
+Mesh *mesh_import(const char *filename)
 {
 	Mesh *mesh;
+	p_ply ply;
+	const char *tail;
 
-	if (argc < 2)
-		return 1;
-	
-	mesh = load_mesh(argv[1]);
-
-	return 0;
-}
-
-Mesh *load_mesh(const char *filename)
-{
-	Mesh *mesh;
-	FILE *stream;
-
-	stream = fopen(filename, "rb");
-	if (stream == NULL)
+	ply = ply_open(filename, NULL);
+	if (ply == NULL)
+		return NULL;
+	if (ply_read_header(ply) == 0)
 		return NULL;
 
 	mesh = malloc(sizeof(Mesh));
 
-	load_mesh_stream(mesh, stream, FIRST_PASS);
-	mesh->vertex = calloc(mesh->num_vertices, sizeof(Vertex));
-	mesh->normal = calloc(mesh->num_normals, sizeof(Normal));
-	mesh->texcoord = calloc(mesh->num_texcoords, sizeof(TexCoord));
-	mesh->triangle = calloc(mesh->num_triangles, sizeof(Triangle));
-	load_mesh_stream(mesh, stream, SECOND_PASS);
+	tail = strrchr(filename, '/');
+	mesh->name = strdup((tail ? tail + 1 : filename));
+	if (mesh_load_ply(mesh, ply) == false)
+	{
+		/* TODO: log */
+		free(mesh);
+		mesh = NULL;
+	}
 
-	free(mesh);
+	generate_normals(mesh);
+
+	ply_close(ply);
 
 	return mesh;
 }
 
-/* Load the data line by line */
-static int load_mesh_stream(Mesh *mesh, FILE *stream, enum pass_num pass)
+bool mesh_load_ply(Mesh *mesh, p_ply ply)
 {
-	char *line;
-	int ret;
-	LineReader lr;
+	p_ply_element element = NULL;
 
-	mesh->num_vertices = mesh->num_normals = mesh->num_texcoords = 0;
-	mesh->num_triangles = mesh->num_groups = 0;
-
-	lr = linereader_start(stream);
-
-	while ((line = linereader_get(&lr)) != NULL )
+	/* TODO: Decent error handling */
+	while((element = ply_get_next_element(ply, element)) != NULL)
 	{
-		if (pass == FIRST_PASS)
-			ret = first_pass_line(mesh, line);
-		else
-			ret = second_pass_line(mesh, line);
+		const char *name;
+		long ninstances;
+		ply_get_element_info(element, &name, &ninstances);
 
-		if (ret != 0)
-			return 1;
-
+		if (strcmp(name, "vertex") == 0)
+		{
+			mesh->num_vertices = ninstances;
+			mesh->vertex = calloc(ninstances, sizeof(Vertex));
+		} else if (strcmp(name, "face") == 0)
+		{
+			mesh->num_triangles = ninstances;
+			mesh->triangle = calloc(ninstances, sizeof(Triangle));
+		}
 	}
 
-	linereader_stop(&lr);
+	ply_set_read_cb(ply, "vertex", "x", vertex_cb, mesh, (long) PROP_X);
+	ply_set_read_cb(ply, "vertex", "y", vertex_cb, mesh, (long) PROP_Y);
+	ply_set_read_cb(ply, "vertex", "z", vertex_cb, mesh, (long) PROP_Z);
+	ply_set_read_cb(ply, "face", "vertex_indices", face_cb, mesh, 0);
 
-	free(line);
-
-	printf("Mesh statistics:\n");
-	printf("%u\tvertices\n", mesh->num_vertices);
-	printf("%u\tnormals\n", mesh->num_normals);
-	printf("%u\ttexcoords\n", mesh->num_texcoords);
-	printf("%u\ttriangles\n", mesh->num_triangles);
-	printf("%u\tgroups\n", mesh->num_groups);
-	return 0;
+	ply_read(ply);
+	return true;
 }
 
-/*
- * First pass
- */
-
-static int first_pass_line(Mesh *mesh, const char *line)
+static int vertex_cb(p_ply_argument argument)
 {
-	char tmp[128]; /* XXX Arbitrary, but should be enough for everything */
-	int n;
+	Mesh *mesh;
+	void *pdata;
+	long idata, index;
+	double data;
 
-	if (sscanf(line, "%s %n", tmp, &n) == EOF)
-		return 0;
-
-	line += n;
-
-	switch (tmp[0])
+	ply_get_argument_user_data(argument, &pdata, &idata);
+	mesh = (Mesh *)pdata;
+	ply_get_argument_element(argument, NULL, &index);
+	data = ply_get_argument_value(argument);
+	switch(idata)
 	{
-	case '#': /* Comment */
-	case '\0':/* Whitespace */
+	case PROP_X:
+		mesh->vertex[index].x = data;
 		break;
-	case 'v': /* Vertex, normal or texture coordinate */
-		switch(tmp[1])
-		{
-		case '\0':
-			mesh->num_vertices++;
-			break;
-		case 'n':
-			mesh->num_normals++;
-			break;
-		case 't':
-			mesh->num_texcoords++;
-			break;
-		default:
-			printf("Malformed line: %s\n", line);
-			return 1;
-			break;
-		}
+	case PROP_Y:
+		mesh->vertex[index].y = data;
 		break;
-	case 'f': /* Face */
-		mesh->num_triangles += count_triangles(line);
-		break;
-	case 'g': /* Group */
-		mesh->num_groups++;
-		break;
-	case 'o': /* Object */
+	case PROP_Z:
+		mesh->vertex[index].z = data;
 		break;
 	default:
-		printf("Malformed line: %s\n", line);
-		return 1;
-		break;
-	}
-
-	return 0;
-}
-
-static int count_triangles(const char *line)
-{
-	const char *start;
-	int num = 0, n, t; /* t is for throwaway values */
-
-	/* There are four possibilities: v//n, v/t/n, v/t, v */
-	if ((start = strstr(line, "//")) != NULL)
-	{ /* v//n */
-		start += 2;
-		if ((start = strstr(start, "//")) == NULL)
-			return 0;
-		start += 2;
-		if ((start = strstr(start, "//")) == NULL)
-			return 0;
-		start += 2;
-
-		num = 1;
-		while ((start = strstr(start, "//")))
-		{
-			start += 2;
-			num++;
-		}
-
-		return num;
-	} else if ((start = strchr(line, '/')) != NULL)
-	{
-		start++;
-		if ((start = strchr(start, '/')) != NULL)
-		{ /* v/t/n */
-			if (sscanf(line, "%d/%d/%d %d/%d/%d %d/%d/%d  %n\n",
-			                  &t,&t,&t,&t,&t,&t,&t,&t,&t, &n) < 9)
-				return 0;
-
-			num = 1;
-			start = line + n;
-			while (sscanf(start, "%d/%d/%d %n", &t, &t, &t, &n) == 3)
-			{
-				num++;
-				start += n;
-			}
-		} else
-		{ /* v/t */
-			if (sscanf(line, "%d/%d %d/%d %d/%d  %n\n", 
-			                  &t,&t,&t,&t,&t,&t, &n) < 6)
-				return 0;
-
-			num = 1;
-			start = line + n;
-			while (sscanf(start, "%d/%d %n", &n, &n, &n) == 2)
-			{
-				num++;
-				start += n;
-			}
-			
-		}
-	} else
-	{ /* v */
-		if (sscanf(line, "%d %d %d %n", &n, &n, &n, &n) < 3)
-			return 0;
-
-		num = 1;
-		start = line + n;
-		while (sscanf(start, "%d %n", &n, &n) == 1)
-		{
-			start += n;
-			num++;
-		}
-	}
-
-	return num;
-}
-
-/***************
- * Second pass *
- ***************/
-static int second_pass_line(Mesh *mesh, const char *line)
-{
-	char tmp[128]; /* XXX Arbitrary, but should be enough for everything */
-	int n;
-	static int cur_vert = 0;
-	static int cur_normal = 0;
-	static int cur_texcoord = 0;
-	static int cur_triangle = 0;
-
-	if (sscanf(line, "%s %n", tmp, &n) == EOF)
+		/* Shouldn't happen */
+		fprintf(stderr, "Internal consistency error\n");
 		return 0;
+		break;
+	}
 
-	line += n;
+	return 1;
+}
 
-	switch (tmp[0])
+static int face_cb(p_ply_argument argument)
+{
+	Mesh *mesh;
+	void *pdata;
+	long index, len, value_index;
+	
+	ply_get_argument_user_data(argument, &pdata, NULL);
+	mesh = (Mesh *)pdata;
+	ply_get_argument_element(argument, NULL, &index);
+	ply_get_argument_property(argument, NULL, &len, &value_index);
+	
+	if (len != 3)
 	{
-	case '#': /* Comment */
-	case '\0':/* Whitespace */
-		break;
-	case 'v': /* Vertex, normal or texture coordinate */
-		switch(tmp[1])
-		{
-		case '\0':
-			mesh->vertex[cur_vert] = parse_vertex(line);
-			cur_vert++;
-			break;
-		case 'n':
-			mesh->normal[cur_normal] = parse_normal(line);
-			cur_normal++;
-			break;
-		case 't':
-			mesh->texcoord[cur_texcoord] = parse_texcoord(line);
-			cur_texcoord++;
-			break;
-		default:
-			printf("Malformed line: %s\n", line);
-			return 1;
-			break;
-		}
-		break;
-	case 'f': /* Face */
-		cur_triangle += parse_triangles(mesh, line, cur_triangle);
-		break;
-	case 'g': /* Group */
-		break;
-	case 'o': /* Object */
-		break;
-	default:
-		printf("Malformed line: %s\n", line);
+		/* TODO: Tesselate? */
+		fprintf(stderr, "Malformed face\n");
 		return 1;
-		break;
 	}
+	
+	if (value_index == -1)
+		return 1;
 
-	return 0;
+	mesh->triangle[index].vertex[value_index] = ply_get_argument_value(argument);
+
+	return 1;
 }
 
-static Vertex parse_vertex(const char *line)
+/* Generate normals for a mesh based on the faces.
+ * We assume all faces are triangles here. */
+static void generate_normals(Mesh *mesh)
 {
-	GLfloat x, y, z;
-	Vertex item;
+	struct {
+		int num_faces;
+		Normal normal_sum;
+	} *normal_record;
+	int i;
 
-	sscanf(line, " v %f %f %f\n", &x, &y, &z);
-	item.x = x;
-	item.y = y;
-	item.z = z;
-
-	return item;
-}
-
-static Normal parse_normal(const char *line)
-{
-	GLfloat x, y, z;
-	Normal item;
-
-	sscanf(line, " vn %f %f %f\n", &x, &y, &z);
-	item.x = x;
-	item.y = y;
-	item.z = z;
-
-	return item;
-}
-
-static TexCoord parse_texcoord(const char *line)
-{
-	GLfloat u, v;
-	TexCoord item;
-
-	sscanf(line, " vt %f %f\n", &u, &v);
-	item.u = u;
-	item.v = v;
-
-	return item;
-}
-
-static int parse_triangles(Mesh *mesh, const char *line, int cur_triangle)
-{
-	const char *start;
-	int n;
-
-	/* There are four possibilities: v//n, v/t/n, v/t, v */
-	if (strstr(line, "//") != NULL)
-	{ /* v//n */
-		if (sscanf(" f %d//%d %d//%d %d//%d %n", 
-				&v1, &n1, &v2, &n2, &v3, &n3, &n) < 6)
-				return 0;
-	} else if (strchr(line, '/') != NULL)
+	/* 1. Initialize all normal sums to zero */
+	normal_record = calloc(mesh->num_vertices, sizeof(*normal_record));
+	for (i = 0; i < mesh->num_vertices; i++)
 	{
-		return 0;
+		normal_record[i].num_faces = 0;
+		normal_record[i].normal_sum.x = 0.0;
+		normal_record[i].normal_sum.y = 0.0;
+		normal_record[i].normal_sum.z = 0.0;
 	}
 
+	/* 2. Accumulate the normals of each face onto the vertices */
+	for (i = 0; i < mesh->num_triangles; i++)
+	{
+		Normal normal;
+		GLuint i1, i2, i3;
+
+		i1 = mesh->triangle[i].vertex[0];
+		i2 = mesh->triangle[i].vertex[1];
+		i3 = mesh->triangle[i].vertex[2];
+
+		normal = calc_face_normal(mesh->vertex[i1], mesh->vertex[i2], 
+				mesh->vertex[i3]);
+
+		normal_record[i1].normal_sum.x += normal.x;
+		normal_record[i1].normal_sum.y += normal.y;
+		normal_record[i1].normal_sum.z += normal.z;
+		normal_record[i1].num_faces++;
+
+		normal_record[i2].normal_sum.x += normal.x;
+		normal_record[i2].normal_sum.y += normal.y;
+		normal_record[i2].normal_sum.z += normal.z;
+		normal_record[i2].num_faces++;
+
+		normal_record[i3].normal_sum.x += normal.x;
+		normal_record[i3].normal_sum.y += normal.y;
+		normal_record[i3].normal_sum.z += normal.z;
+		normal_record[i3].num_faces++;
+	}
+
+	/* 3. Distribute the normals over the vertices */
+	mesh->num_normals = mesh->num_vertices;
+	mesh->normal = calloc(mesh->num_normals, sizeof(Normal));
+	for (i = 0; i < mesh->num_vertices; i++)
+	{
+		double x, y, z, d;
+		x = normal_record[i].normal_sum.x;
+		y = normal_record[i].normal_sum.y;
+		z = normal_record[i].normal_sum.z;
+		d = sqrt(SQUARE(x) + SQUARE(y) + SQUARE(z));
+
+		if (normal_record[i].num_faces == 0)
+			continue; /* FIXME: What to do about lonely vertices? */
+
+		mesh->normal[i].x = x / d;
+		mesh->normal[i].y = y / d;
+		mesh->normal[i].z = z / d;
+	}
+
+	free(normal_record);
 }
 
+/* WARNING: despite the name, the returned normal is not yet
+ * normalized */
+static Normal calc_face_normal(Vertex p1, Vertex p2, Vertex p3)
+{
+	Vec3 v1, v2, v3;
+	Normal n;
+
+	v1.x = p2.x - p1.x;
+	v1.y = p2.y - p1.y;
+	v1.z = p2.z - p1.z;
+
+	v2.x = p3.x - p1.x;
+	v2.y = p3.y - p1.y;
+	v2.z = p3.z - p1.z;
+
+	v3 = vec3_cross(v1, v2);
+
+	n.x = v3.x;
+	n.y = v3.y;
+	n.z = v3.z;
+
+	return n;
+}
+
+/* XXX Split off in renderer.c, remove glew.h */
+void mesh_upload_to_gpu(Mesh *mesh, GLuint program)
+{
+	/* TODO: give shader as argument */
+	/* TODO: So much error-checking */
+	GLint vertex_attr, normal_attr;
+	
+
+	/* Vertices */
+	glGenBuffers(1, &mesh->vertex_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_vbo);
+	glBufferData(GL_ARRAY_BUFFER, mesh->num_vertices * sizeof(Vertex),
+			mesh->vertex, GL_STATIC_DRAW);
+	vertex_attr = glGetAttribLocation(program, "in_position");
+	glEnableVertexAttribArray(vertex_attr);
+	glVertexAttribPointer(vertex_attr, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+	
+	/* Normals */
+	glGenBuffers(1, &mesh->normal_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->normal_vbo);
+	glBufferData(GL_ARRAY_BUFFER, mesh->num_normals * sizeof(Normal),
+			mesh->normal, GL_STATIC_DRAW);
+	normal_attr = glGetAttribLocation(program, "in_normal");
+	glEnableVertexAttribArray(normal_attr);
+	glVertexAttribPointer(normal_attr, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+
+	/* Triangles */
+	glGenBuffers(1, &mesh->triangle_vbo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->triangle_vbo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->num_triangles * sizeof(Triangle),
+			mesh->triangle, GL_STATIC_DRAW);
+
+}
