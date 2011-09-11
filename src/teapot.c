@@ -66,11 +66,11 @@ static void calcfps()
 	tick = al_get_time();
 	if (tick - tock > SAMPLE_TIME)
 	{
-		tock = tick;
-		snprintf(string, 64, "%d FPS", (int) (frames / SAMPLE_TIME));
+		snprintf(string, 64, "%d FPS", (int) (frames/(tick - tock) + 0.5));
 		al_set_window_title(dpy, string);
 
 		frames = 0;
+		tock = tick;
 	}
 
 }
