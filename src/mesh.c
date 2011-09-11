@@ -23,6 +23,7 @@ static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
 static void generate_normals(Mesh *mesh);
 static Normal calc_face_normal(Vertex v1, Vertex v2, Vertex v3);
+static void unitize_mesh(Mesh *mesh);
 
 Mesh *mesh_import(const char *filename)
 {
@@ -35,14 +36,14 @@ Mesh *mesh_import(const char *filename)
 	/* TODO: Other fileformats */
 	if (mesh_load_ply(mesh, filename) == false)
 	{
-		fprintf(stderr, "Couldn't load model at %s: not in PLY format\n", 
-				filename);
+		fprintf(stderr, "Couldn't load model at %s\n", filename);
 		free(mesh);
 		return NULL;
 	}
 
 	mesh->name = strdup((tail ? tail + 1 : filename));
 	generate_normals(mesh); /* FIXME: What if we already have normals? */
+	unitize_mesh(mesh);
 
 	return mesh;
 }
@@ -244,4 +245,42 @@ static Normal calc_face_normal(Vertex p1, Vertex p2, Vertex p3)
 	n.z = v3.z;
 
 	return n;
+}
+
+static void unitize_mesh(Mesh *mesh)
+{
+	int i;
+	GLfloat xmin, ymin, zmin, xmax, ymax, zmax;
+	GLfloat scale;
+
+	xmin = ymin = zmin =  1e37;
+	xmax = ymax = zmax = -1e37;
+
+	for (i = 0; i < mesh->num_vertices; i++)
+	{
+		Vertex v = mesh->vertex[i];
+
+		if (xmin > v.x)
+			xmin = v.x;
+		if (ymin > v.y)
+			ymin = v.y;
+		if (zmin > v.z)
+			zmin = v.z;
+		if (xmax < v.x)
+			xmax = v.x;
+		if (ymax < v.y)
+			ymax = v.y;
+		if (zmax < v.z)
+			zmax = v.z;
+	}
+
+	scale = MAX(xmax - xmin, MAX(ymax - ymin, zmax - zmin)) / 2;
+	for (i = 0; i < mesh->num_vertices; i++)
+	{
+		mesh->vertex[i].x = (mesh->vertex[i].x - (xmin + xmax)/2)/scale;
+		mesh->vertex[i].y = (mesh->vertex[i].y - (ymin + ymax)/2)/scale;
+		mesh->vertex[i].z = (mesh->vertex[i].z - (zmin + zmax)/2)/scale;
+	}
+
+	return;
 }
