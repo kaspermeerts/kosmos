@@ -9,6 +9,7 @@
 #define XSTRINGIFY(s) #s
 
 #include "mathlib.h"
+#include "shader.h"
 #include "glm.h"
 #include "camera.h"
 #include "mesh.h"
@@ -20,7 +21,6 @@
 static void calcfps(void);
 
 ALLEGRO_DISPLAY *dpy;
-GLuint shaderProgram;
 
 Matrix *projectionMatrix = NULL;
 Matrix *modelviewMatrix = NULL;
@@ -75,74 +75,10 @@ static void calcfps()
 
 }
 
-void show_info_log(GLuint object, PFNGLGETSHADERIVPROC glGet__iv,
-		PFNGLGETSHADERINFOLOGPROC glGet__InfoLog)
+int main(int argc, char **argv)
 {
-	GLint log_len;
-	char *log;
-
-	glGet__iv(object, GL_INFO_LOG_LENGTH, &log_len);
-	log = malloc(log_len);
-	glGet__InfoLog(object, log_len, NULL, log);
-	fprintf(stderr, "%s", log);
-	free(log);
-	return;
-}
-
-int init_shaders()
-{
-	ALLEGRO_FILE *file;
-	int64_t filesize;
-	char *source;
-	GLuint vertexShader, fragmentShader;
-	GLint linked;
-
-	shaderProgram = glCreateProgram();
-
-	file = al_fopen(STRINGIFY(ROOT_PATH) "/src/teapot.v.glsl", "rb");
-	filesize = al_fsize(file);
-	if (filesize == -1)
-		return 1;
-	else
-		source = malloc(filesize + 1);
-	al_fread(file, source, filesize);
-	source[filesize] = '\0';
-	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertexShader, 1, (const GLchar **) &source, 0);
-	glCompileShader(vertexShader);
-	show_info_log(vertexShader, glGetShaderiv, glGetShaderInfoLog);
-	glAttachShader(shaderProgram, vertexShader);
-	al_fclose(file);
-	free(source);
-
-	file = al_fopen(STRINGIFY(ROOT_PATH) "/src/teapot.f.glsl", "rb");
-	filesize = al_fsize(file);
-	if (filesize == -1)
-		return 1;
-	else
-		source = malloc(filesize + 1);
-	al_fread(file, source, filesize);
-	source[filesize] = '\0';
-	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragmentShader, 1, (const GLchar **) &source, 0);
-	glCompileShader(fragmentShader);
-	show_info_log(fragmentShader, glGetShaderiv, glGetShaderInfoLog);
-	glAttachShader(shaderProgram, fragmentShader);
-	free(source);
-
-
-	glBindFragDataLocation(shaderProgram, 0, "fragColour");
-
-	glLinkProgram(shaderProgram);
-	glUseProgram(shaderProgram);
-
-	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &linked);
-
-	return linked;
-}
-
-int main(void)
-{
+	Shader *shader;
+	const char *filename;
 	Camera cam;
 	Vec3 position = {0, 0, 5};
 	Vec3 up =  {0, 1, 0};
@@ -151,6 +87,14 @@ int main(void)
 	GLint proj_unif, view_unif;
 	bool wireframe = false;
 	Mesh *mesh;
+	if (argc < 2)
+		filename = STRINGIFY(ROOT_PATH) "/data/teapot.ply";
+	else
+		filename = argv[1];
+
+	mesh = mesh_import(filename);
+	if (mesh == NULL)
+		return 1;
 
 	cam.fov = M_PI/12;
 	cam.x = 0;
@@ -169,38 +113,39 @@ int main(void)
 
 	glewInit();
 
-	init_shaders();
-	show_info_log(shaderProgram, glGetProgramiv, glGetProgramInfoLog);
+	shader = shader_create(STRINGIFY(ROOT_PATH) "/src/teapot.v.glsl", 
+	                       STRINGIFY(ROOT_PATH) "/src/teapot.f.glsl");
+	if (shader == NULL)
+		return 1;
+	glUseProgram(shader->program);
 
 	projectionMatrix = glmNewMatrixStack();
 	modelviewMatrix = glmNewMatrixStack();
 
 	glClearColor(100/255., 149/255., 237/255., 1.0);
 	glEnable(GL_DEPTH_TEST);
-	glDisable(GL_CULL_FACE);
+	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
 	/* Make buffers */
-	mesh = mesh_import(STRINGIFY(ROOT_PATH) "/data/teapot.ply");
-	if (mesh == NULL)
-		return 1;
 
-	mesh_upload_to_gpu(mesh, shaderProgram);
+
+	mesh_upload_to_gpu(mesh, shader->program);
 
 	/* Transformation matrices */
 	cam_projection_matrix(&cam, projectionMatrix);
-	proj_unif = glGetUniformLocation(shaderProgram, "projection_matrix");
+	proj_unif = glGetUniformLocation(shader->program, "projection_matrix");
 	glmUniformMatrix(proj_unif, projectionMatrix);
 
-	view_unif = glGetUniformLocation(shaderProgram, "modelview_matrix");
+	view_unif = glGetUniformLocation(shader->program, "modelview_matrix");
 
 	/* Lighting */
-	glUniform3fv(glGetUniformLocation(shaderProgram, "light_dir"), 1, light_dir);
+	glUniform3fv(glGetUniformLocation(shader->program, "light_dir"), 1, light_dir);
 
-	glUniform3fv(glGetUniformLocation(shaderProgram, "mat_ambient"), 1, material_ambient);
-	glUniform3fv(glGetUniformLocation(shaderProgram, "mat_diffuse"), 1, material_diffuse);
-	glUniform3fv(glGetUniformLocation(shaderProgram, "mat_specular"), 1, material_specular);
-	glUniform1f(glGetUniformLocation(shaderProgram, "shininess"), shininess);
+	glUniform3fv(glGetUniformLocation(shader->program, "mat_ambient"), 1, material_ambient);
+	glUniform3fv(glGetUniformLocation(shader->program, "mat_diffuse"), 1, material_diffuse);
+	glUniform3fv(glGetUniformLocation(shader->program, "mat_specular"), 1, material_specular);
+	glUniform1f(glGetUniformLocation(shader->program, "shininess"), shininess);
 
 	/* Start rendering */
 
@@ -214,7 +159,7 @@ int main(void)
 			switch (ev.type)
 			{
 			case ALLEGRO_EVENT_DISPLAY_CLOSE:
-				return 0;
+				goto out;
 				break;
 			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
 				al_show_mouse_cursor(dpy);
@@ -233,7 +178,13 @@ int main(void)
 				break;
 			case ALLEGRO_EVENT_KEY_CHAR:
 				if(ev.keyboard.unichar == 'w')
+				{
 					wireframe = !wireframe;
+					if (wireframe)
+						glDisable(GL_CULL_FACE);
+					else
+						glEnable(GL_CULL_FACE);
+				}
 				break;
 			default:
 				break;
@@ -244,21 +195,28 @@ int main(void)
 		glmLoadIdentity(modelviewMatrix);
 		cam_view_matrix(&cam, modelviewMatrix); /* view */
 		glmTranslate(modelviewMatrix, target.x, target.y, target.z);
-		glmScaleUniform(modelviewMatrix, 0.015); /* model */
 		glmUniformMatrix(view_unif, modelviewMatrix);
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		if (wireframe)
-			glDrawRangeElements(GL_LINES, 0, mesh->num_vertices - 1, 
-				mesh->num_triangles*3, GL_UNSIGNED_INT, NULL);
+			glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 		else
-			glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1,
-				mesh->num_triangles*3, GL_UNSIGNED_INT, NULL);
+			glPolygonMode(GL_FRONT, GL_FILL);
+
+		glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1, 
+			mesh->num_triangles*3, GL_UNSIGNED_INT, NULL);
 
 		al_flip_display();
 		calcfps();
 	}
 
+out:
+	free(mesh->name);
+	free(mesh->vertex);
+	free(mesh->triangle);
+	free(mesh);
+
+	shader_delete(shader);
 	glmFreeMatrixStack(projectionMatrix);
 	glmFreeMatrixStack(modelviewMatrix);
 	al_destroy_display(dpy);
