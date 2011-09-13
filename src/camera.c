@@ -75,6 +75,16 @@ void cam_view_matrix(const Camera *cam, Matrix *view)
 
 }
 
+void cam_rotate(Camera *cam, int dx, int dy)
+{
+
+	const double radius = MIN(cam->width, cam->height)/2;
+	Quaternion q;
+
+	q = quat_trackball(dx, dy, radius);
+	cam->orientation = quat_multiply(cam->orientation, q);
+}
+
 void cam_orbit(Camera *cam, int dx, int dy)
 {
 	const double radius = MIN(cam->width, cam->height)/2;
@@ -95,10 +105,19 @@ void cam_orbit(Camera *cam, int dx, int dy)
 	/* As round-off errors accumulate, the distance between the camera and the
 	 * target would normally fluctuate. We take steps to prevent that here. */
 	distance = vec3_length(v);
-	v = quat_transform_vector(q2, v);
+	v = quat_transform(q2, v);
 	v = vec3_normalize(v);
 	v = vec3_scale(v, distance);
 
 	cam->position = vec3_add(cam->target, v);
 	cam->orientation = quat_multiply(q2, cam->orientation);
+}
+
+void cam_dolly(Camera *cam, int dz)
+{
+	Vec3 v;
+
+	v = vec3_sub(cam->position, cam->target);
+	v = vec3_scale(v, exp(-0.1*dz));
+	cam->position = vec3_add(cam->target, v);
 }

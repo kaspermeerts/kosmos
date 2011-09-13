@@ -16,6 +16,6 @@ Quaternion quat_multiply(Quaternion p, Quaternion q);
 Quaternion quat_from_angle_axis(double angle, double ax,
 		double ay, double az);
 Quaternion quat_trackball(int dx, int dy, double radius);
-Vec3 quat_transform_vector(Quaternion q, Vec3 v);
+Vec3 quat_transform(Quaternion q, Vec3 v);
 
 #endif
