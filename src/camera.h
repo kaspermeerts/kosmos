@@ -1,5 +1,5 @@
-#ifndef _CAMERA_H_
-#define _CAMERA_H_
+#ifndef KOSMOS_CAMERA_H
+#define KOSMOS_CAMERA_H
 
 #include "glm.h"
 #include "vector.h"

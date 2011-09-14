@@ -1,5 +1,5 @@
-#ifndef _QUATERNION_H_
-#define _QUATERNION_H_
+#ifndef KOSMOS_QUATERNION_H
+#define KOSMOS_QUATERNION_H
 
 #include "vector.h"
 

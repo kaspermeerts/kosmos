@@ -1,5 +1,5 @@
-#ifndef _GLM_H_
-#define _GLM_H_
+#ifndef KOSMOS_GLM_H
+#define KOSMOS_GLM_H
 
 #include <GL/gl.h>
 #include "mathlib.h"

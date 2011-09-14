@@ -1,5 +1,5 @@
-#ifndef _LINEREADER_H_
-#define _LINEREADER_H_
+#ifndef KOSMOS_LINEREADER_H
+#define KOSMOS_LINEREADER_H
 
 #include <stdio.h>
 

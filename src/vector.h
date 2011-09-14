@@ -1,5 +1,5 @@
-#ifndef _VECTOR_H_
-#define _VECTOR_H_
+#ifndef KOSMOS_VECTOR_H
+#define KOSMOS_VECTOR_H
 
 typedef struct Vec3 {
 	double x;

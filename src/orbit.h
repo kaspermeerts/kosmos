@@ -1,5 +1,5 @@
-#ifndef _ORBIT_H_
-#define _ORBIT_H_
+#ifndef KOSMOS_ORBIT_H
+#define KOSMOS_ORBIT_H
 
 #include "mathlib.h"
 

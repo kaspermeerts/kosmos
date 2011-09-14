@@ -1,5 +1,5 @@
-#ifndef _MATHLIB_H_
-#define _MATHLIB_H_
+#ifndef KOSMOS_MATHLIB_H
+#define KOSMOS_MATHLIB_H
 
 #ifndef M_PI
 #define M_PI 3.141592653589793238462643

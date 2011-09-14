@@ -1,5 +1,5 @@
-#ifndef _SHADER_H_
-#define _SHADER_H_
+#ifndef KOSMOS_SHADER_H
+#define KOSMOS_SHADER_H
 
 #include <GL/gl.h>
 

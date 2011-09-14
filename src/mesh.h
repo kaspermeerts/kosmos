@@ -1,5 +1,5 @@
-#ifndef _MESH_H_
-#define _MESH_H_
+#ifndef KOSMOS_MESH_H
+#define KOSMOS_MESH_H
 
 #include <rply.h>
 #include <stdbool.h>
