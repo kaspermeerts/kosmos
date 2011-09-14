@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <allegro5/allegro.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
+#include <allegro5/allegro.h>
 
 #include "shader.h"
 

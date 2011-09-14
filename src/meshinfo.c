@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <rply.h>
 
 #include "mesh.h"
 

@@ -1,11 +1,10 @@
-#include <ctype.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <GL/gl.h>
-#include <allegro5/allegro.h>
+#include <rply.h>
 
 #include "mathlib.h"
 #include "mesh.h"

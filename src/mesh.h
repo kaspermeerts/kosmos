@@ -1,8 +1,6 @@
 #ifndef KOSMOS_MESH_H
 #define KOSMOS_MESH_H
 
-#include <rply.h>
-#include <stdbool.h>
 #include <GL/gl.h>
 
 typedef struct Vertex {
@@ -40,6 +38,6 @@ typedef struct Mesh {
 } Mesh;
 
 Mesh *mesh_import(const char *filename);
-
 void mesh_upload_to_gpu(Mesh *mesh, GLuint program);
+
 #endif
