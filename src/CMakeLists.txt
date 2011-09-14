@@ -1,4 +1,4 @@
-set(mathlib_sources matrix.c vector.c quaternion.c)
+set(mathlib_sources vector.c quaternion.c)
 set(render_sources renderer_progr.c shader.c camera.c glm.c mesh.c)
 
 find_package(OpenGL REQUIRED)

@@ -222,6 +222,7 @@ int main(int argc, char **argv)
 out:
 	free(mesh->name);
 	free(mesh->vertex);
+	free(mesh->normal);
 	free(mesh->triangle);
 	free(mesh);
 

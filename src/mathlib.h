@@ -12,7 +12,6 @@
 #define SQUARE(x) ((x) * (x))
 
 #include "quaternion.h"
-#include "matrix.h"
 #include "vector.h"
 
 #endif
