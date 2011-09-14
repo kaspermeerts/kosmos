@@ -1,7 +1,7 @@
 #ifndef _CAMERA_H_
 #define _CAMERA_H_
 
-#include "matrix.h"
+#include "glm.h"
 #include "vector.h"
 #include "quaternion.h"
 
@@ -10,7 +10,7 @@ typedef struct Camera {
 	Quaternion orientation; /* orientation of the camera in space */
 
 	Vec3 target;   /* position of the current selection*/
-	
+
 	int left, bottom; /* the lower left corner of the viewport */
 	int width, height;
 

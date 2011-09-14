@@ -17,7 +17,7 @@ void cam_lookat(Camera *cam, Vec3 pos, Vec3 target, Vec3 up)
 	/* Create a quaternion out of these */
 	Quaternion q;
 	double T;
-	
+
 	/* To understand this, research "convert orthogonal matrix to quaternion"
 	 * This algorithm comes from "The Matrix and Quaternion FAQ" */
 	forward = vec3_scale(forward, -1); /* We are looking down on the z-axis */
@@ -28,7 +28,7 @@ void cam_lookat(Camera *cam, Vec3 pos, Vec3 target, Vec3 up)
 		q.x = (up.z - forward.y) / (4*q.w);
 		q.y = (forward.x - side.z) / (4*q.w);
 		q.z = (side.y - up.x) / (4*q.w);
-	} else 
+	} else
 	{
 		if (side.x > up.y && side.x > forward.z)
 		{
@@ -67,10 +67,10 @@ void cam_projection_matrix(const Camera *cam, Matrix *proj)
 
 void cam_view_matrix(const Camera *cam, Matrix *view)
 {
-	mat_load_identity(view);
+	glmLoadIdentity(view);
 	/* Because the matrix transform vertices, we have to give
 	 * the inverse transformation */
-	mat_mul_quaternion(view, quat_conjugate(cam->orientation));
+	glmMultQuaternion(view, quat_conjugate(cam->orientation));
 	glmTranslate(view, -cam->position.x, -cam->position.y, -cam->position.z);
 
 }
