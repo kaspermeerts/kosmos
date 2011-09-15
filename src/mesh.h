@@ -20,11 +20,11 @@ typedef struct Triangle {
 typedef struct Mesh {
 	char *name;
 
-	int num_vertices;
+	unsigned int num_vertices;
 	Vertex *vertex;
 	GLuint vertex_vbo;
 
-	int num_normals;
+	unsigned int num_normals;
 	Normal *normal;
 	GLuint normal_vbo;
 #if 0 /* TODO: Textures :p */
@@ -32,7 +32,7 @@ typedef struct Mesh {
 	TexCoord *texcoord;
 	GLuint texcoord_vbo;
 #endif
-	int num_triangles;
+	unsigned int num_triangles;
 	Triangle *triangle;
 	GLuint triangle_vbo;
 } Mesh;

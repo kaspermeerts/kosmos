@@ -3,7 +3,9 @@
 
 #include "mesh.h"
 
-void mesh_print(Mesh *mesh)
+static void mesh_print(Mesh *mesh);
+
+static void mesh_print(Mesh *mesh)
 {
 	printf("Mesh %s\n", mesh->name);
 	printf("%d Vertices\n", mesh->num_vertices);

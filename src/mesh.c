@@ -66,10 +66,20 @@ static bool mesh_load_ply(Mesh *mesh, const char *filename)
 
 		if (strcmp(name, "vertex") == 0)
 		{
+			if (ninstances <= 0)
+			{
+				fprintf(stderr, "Invalid number of vertices: %ld\n", ninstances);
+				goto out;
+			}
 			mesh->num_vertices = ninstances;
 			mesh->vertex = calloc(ninstances, sizeof(Vertex));
 		} else if (strcmp(name, "face") == 0)
 		{
+			if (ninstances <= 0)
+			{
+				fprintf(stderr, "Invalid number of faces: %ld\n", ninstances);
+				goto out;
+			}
 			mesh->num_triangles = ninstances;
 			mesh->triangle = calloc(ninstances, sizeof(Triangle));
 		} else
@@ -159,7 +169,7 @@ static void generate_normals(Mesh *mesh)
 		int num_faces;
 		Normal normal_sum;
 	} *normal_record;
-	int i;
+	unsigned int i;
 
 	/* 1. Initialize all normal sums to zero */
 	normal_record = calloc(mesh->num_vertices, sizeof(*normal_record));
@@ -248,12 +258,12 @@ static Normal calc_face_normal(Vertex p1, Vertex p2, Vertex p3)
 
 static void unitize_mesh(Mesh *mesh)
 {
-	int i;
+	unsigned int i;
 	GLfloat xmin, ymin, zmin, xmax, ymax, zmax;
 	GLfloat scale;
 
-	xmin = ymin = zmin =  1e37;
-	xmax = ymax = zmax = -1e37;
+	xmin = ymin = zmin =  1e37f;
+	xmax = ymax = zmax = -1e37f;
 
 	for (i = 0; i < mesh->num_vertices; i++)
 	{

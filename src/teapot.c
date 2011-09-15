@@ -19,6 +19,7 @@
 #endif
 
 static void calcfps(void);
+int init_allegro(Camera *cam);
 
 ALLEGRO_DISPLAY *dpy;
 
@@ -195,8 +196,8 @@ int main(int argc, char **argv)
 					}
 				} else if (ev.keyboard.unichar == 'c')
 				{
-					Vec3 up = quat_transform(cam.orientation, (Vec3){0, 1, 0});
-					cam_lookat(&cam, cam.position, cam.target, up);
+					Vec3 upv = quat_transform(cam.orientation, (Vec3){0, 1, 0});
+					cam_lookat(&cam, cam.position, cam.target, upv);
 				}
 				break;
 			default:
