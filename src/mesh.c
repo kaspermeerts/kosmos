@@ -72,7 +72,7 @@ static bool mesh_load_ply(Mesh *mesh, const char *filename)
 				goto out;
 			}
 			mesh->num_vertices = ninstances;
-			mesh->vertex = calloc(ninstances, sizeof(Vertex));
+			mesh->vertex = calloc((size_t) ninstances, sizeof(Vertex));
 		} else if (strcmp(name, "face") == 0)
 		{
 			if (ninstances <= 0)
@@ -81,7 +81,7 @@ static bool mesh_load_ply(Mesh *mesh, const char *filename)
 				goto out;
 			}
 			mesh->num_triangles = ninstances;
-			mesh->triangle = calloc(ninstances, sizeof(Triangle));
+			mesh->triangle = calloc((size_t) ninstances, sizeof(Triangle));
 		} else
 		{
 			fprintf(stderr, "Unknown element: %s\n", name);
@@ -117,13 +117,13 @@ static int vertex_cb(p_ply_argument argument)
 	switch(idata)
 	{
 	case PROP_X:
-		mesh->vertex[index].x = data;
+		mesh->vertex[index].x = (GLfloat) data;
 		break;
 	case PROP_Y:
-		mesh->vertex[index].y = data;
+		mesh->vertex[index].y = (GLfloat) data;
 		break;
 	case PROP_Z:
-		mesh->vertex[index].z = data;
+		mesh->vertex[index].z = (GLfloat) data;
 		break;
 	default:
 		/* Shouldn't happen */
@@ -169,10 +169,10 @@ static void generate_normals(Mesh *mesh)
 		int num_faces;
 		Normal normal_sum;
 	} *normal_record;
-	unsigned int i;
+	int i;
 
 	/* 1. Initialize all normal sums to zero */
-	normal_record = calloc(mesh->num_vertices, sizeof(*normal_record));
+	normal_record = calloc((size_t) mesh->num_vertices, sizeof(*normal_record));
 	for (i = 0; i < mesh->num_vertices; i++)
 	{
 		normal_record[i].num_faces = 0;
@@ -212,7 +212,7 @@ static void generate_normals(Mesh *mesh)
 
 	/* 3. Distribute the normals over the vertices */
 	mesh->num_normals = mesh->num_vertices;
-	mesh->normal = calloc(mesh->num_normals, sizeof(Normal));
+	mesh->normal = calloc((size_t) mesh->num_normals, sizeof(Normal));
 	for (i = 0; i < mesh->num_vertices; i++)
 	{
 		double x, y, z, d;
@@ -224,9 +224,9 @@ static void generate_normals(Mesh *mesh)
 		if (normal_record[i].num_faces == 0)
 			continue; /* FIXME: What to do about lonely vertices? */
 
-		mesh->normal[i].x = x / d;
-		mesh->normal[i].y = y / d;
-		mesh->normal[i].z = z / d;
+		mesh->normal[i].x = (GLfloat) (x / d);
+		mesh->normal[i].y = (GLfloat) (y / d);
+		mesh->normal[i].z = (GLfloat) (z / d);
 	}
 
 	free(normal_record);
@@ -249,16 +249,16 @@ static Normal calc_face_normal(Vertex p1, Vertex p2, Vertex p3)
 
 	v3 = vec3_cross(v1, v2);
 
-	n.x = v3.x;
-	n.y = v3.y;
-	n.z = v3.z;
+	n.x = (GLfloat) v3.x;
+	n.y = (GLfloat) v3.y;
+	n.z = (GLfloat) v3.z;
 
 	return n;
 }
 
 static void unitize_mesh(Mesh *mesh)
 {
-	unsigned int i;
+	int i;
 	GLfloat xmin, ymin, zmin, xmax, ymax, zmax;
 	GLfloat scale;
 

@@ -7,13 +7,13 @@ void mesh_upload_to_gpu(Mesh *mesh, GLuint program)
 {
 	/* TODO: give shader as argument */
 	/* TODO: So much error-checking */
-	GLint vertex_attr, normal_attr;
+	GLuint vertex_attr, normal_attr;
 	
 
 	/* Vertices */
 	glGenBuffers(1, &mesh->vertex_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_vbo);
-	glBufferData(GL_ARRAY_BUFFER, mesh->num_vertices * sizeof(Vertex),
+	glBufferData(GL_ARRAY_BUFFER, (size_t) mesh->num_vertices * sizeof(Vertex),
 			mesh->vertex, GL_STATIC_DRAW);
 	vertex_attr = glGetAttribLocation(program, "in_position");
 	glEnableVertexAttribArray(vertex_attr);
@@ -22,7 +22,7 @@ void mesh_upload_to_gpu(Mesh *mesh, GLuint program)
 	/* Normals */
 	glGenBuffers(1, &mesh->normal_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->normal_vbo);
-	glBufferData(GL_ARRAY_BUFFER, mesh->num_normals * sizeof(Normal),
+	glBufferData(GL_ARRAY_BUFFER, (size_t) mesh->num_normals * sizeof(Normal),
 			mesh->normal, GL_STATIC_DRAW);
 	normal_attr = glGetAttribLocation(program, "in_normal");
 	glEnableVertexAttribArray(normal_attr);
@@ -31,8 +31,8 @@ void mesh_upload_to_gpu(Mesh *mesh, GLuint program)
 	/* Triangles */
 	glGenBuffers(1, &mesh->triangle_vbo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->triangle_vbo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh->num_triangles * sizeof(Triangle),
-			mesh->triangle, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (size_t) mesh->num_triangles * 
+			sizeof(Triangle), mesh->triangle, GL_STATIC_DRAW);
 
 	return;
 }

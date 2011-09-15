@@ -83,19 +83,19 @@ static GLuint shader_load(const char *file, GLenum type)
 		goto errorout;
 	}
 
-	if ((filesize = al_fsize(fd)) == -1)
+	if ((filesize = al_fsize(fd)) < 0)
 	{
 		fprintf(stderr, "Couldn't determine size of file: %s\n", file);
 		goto errorout;
 	}
 
-	if ((contents = malloc(filesize + 1)) == NULL)
+	if ((contents = malloc((size_t) filesize + 1)) == NULL)
 	{
 		fprintf(stderr, "Couldn't allocate %ld bytes of memory\n", filesize + 1);
 		goto errorout;
 	}
 
-	if ((long) al_fread(fd, contents, filesize) != filesize)
+	if (al_fread(fd, contents, (size_t) filesize) != (size_t) filesize)
 	{
 		fprintf(stderr, "Error reading shader file %s\n", file);
 		goto errorout;
@@ -135,7 +135,7 @@ static void show_info_log(GLuint object, PFNGLGETSHADERIVPROC glGet__iv,
 	char *log;
 
 	glGet__iv(object, GL_INFO_LOG_LENGTH, &log_len);
-	log = malloc(log_len);
+	log = malloc((size_t) log_len);
 	glGet__InfoLog(object, log_len, NULL, log);
 	fprintf(stderr, "%s", log);
 	free(log);

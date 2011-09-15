@@ -109,11 +109,11 @@ Quaternion quat_trackball(int dx, int dy, double radius)
 Vec3 quat_transform(Quaternion q, Vec3 v)
 {
 	Vec3 v2;
-	Quaternion p = {0, v.x, v.y, v.z};
-	Quaternion q2 = quat_conjugate(q);
-	Quaternion p2;
+	Quaternion p, p2, q2;
 
+	p = (Quaternion) {0, v.x, v.y, v.z};
 	p2 = quat_multiply(q, p);
+	q2 = quat_conjugate(q);
 	p2 = quat_multiply(p2, q2);
 
 	v2.x = p2.x;
