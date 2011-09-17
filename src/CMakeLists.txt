@@ -1,4 +1,4 @@
-set(mathlib_sources vector.c quaternion.c)
+set(mathlib_sources vector.c quaternion.c matrix.c)
 set(render_sources renderer_progr.c shader.c camera.c glm.c mesh.c)
 
 find_package(OpenGL REQUIRED)
@@ -14,3 +14,6 @@ target_link_libraries(teapot ${render_libs} m)
 
 add_executable(meshinfo meshinfo.c mesh.c ${mathlib_sources} ${external_sources})
 target_link_libraries(meshinfo m)
+
+add_executable(sol solarsystem.c keplerorbit.c ${mathlib_sources})
+target_link_libraries(sol ${ALLEGRO_LIBRARIES} m)
