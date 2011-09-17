@@ -8,6 +8,9 @@ typedef struct Planet {
 	char *name;
 	double mass;
 	KeplerOrbit orbit;
+
+	int num_samples;
+	Vec3 *orbit_path;
 } Planet;
 
 typedef struct SolarSystem {

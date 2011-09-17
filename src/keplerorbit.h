@@ -16,5 +16,7 @@ typedef struct KeplerOrbit {
 	Mat3 plane_orientation;
 } KeplerOrbit;
 
-Vec3 position_at_time(KeplerOrbit *orbit, double jd);
+Vec3 kepler_position_at_true_anomaly(KeplerOrbit *orbit, double theta);
+Vec3 kepler_position_at_E(KeplerOrbit *orbit, double E);
+Vec3 kepler_position_at_time(KeplerOrbit *orbit, double jd);
 #endif

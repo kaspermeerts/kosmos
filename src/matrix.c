@@ -1,3 +1,4 @@
+#include <math.h>
 #include "matrix.h"
 
 
@@ -31,4 +32,23 @@ Vec3 mat3_transform(Mat3 a, Vec3 v)
 #undef A
 	
 	return w;
+}
+
+void mat3_euler(double t1, double t2, double t3, Mat3 mat)
+{
+	double c1, c2, c3, s1, s2, s3;
+
+	c1 = cos(t1); c2 = cos(t2); c3 = cos(t3);
+	s1 = sin(t1); s2 = sin(t2); s3 = sin(t3);
+#define M(i, j) mat[3*j + i]
+	M(0, 0) = c1*c3 -c2*s1*s3;
+	M(0, 1) = -c1*s3 - c3*c2*s1;
+	M(0, 2) = s2*s1;
+	M(1, 0) = c2*c1*s3 + c3*s1;
+	M(1, 1) = c1*c2*c3 - s1*s3;
+	M(1, 2) = -c1*s2;
+	M(2, 0) = s3*s2;
+	M(2, 1) = c3*s2;
+	M(2, 2) = c2;
+#undef M
 }

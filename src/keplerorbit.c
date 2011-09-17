@@ -20,7 +20,20 @@ static double solve_kepler_equation(double ecc, double M)
 	return E3;
 }
 
-static Vec3 position_at_E(KeplerOrbit *orbit, double E)
+Vec3 kepler_position_at_true_anomaly(KeplerOrbit *orbit, double theta)
+{
+	double e = orbit->Ecc;
+	double p = orbit->SMa * (1-e*e);
+	Vec3 plane_pos;
+
+	plane_pos.x = p / (1 + e*cos(theta)) * cos(theta);
+	plane_pos.y = p / (1 + e*sin(theta)) * sin(theta);
+	plane_pos.z = 0;
+
+	return mat3_transform(orbit->plane_orientation, plane_pos);
+}
+
+Vec3 kepler_position_at_E(KeplerOrbit *orbit, double E)
 {
 	double e = orbit->Ecc;
 	double a = orbit->SMa, b = a * sqrt(1 - e*e);
@@ -33,7 +46,7 @@ static Vec3 position_at_E(KeplerOrbit *orbit, double E)
 	return mat3_transform(orbit->plane_orientation, plane_pos);
 }
 
-Vec3 position_at_time(KeplerOrbit *orbit, double jd)
+Vec3 kepler_position_at_time(KeplerOrbit *orbit, double jd)
 {
 	double t = jd - orbit->epoch;
 	double M, E, mean_motion; /* true, mean and eccentric anomaly */
@@ -41,5 +54,5 @@ Vec3 position_at_time(KeplerOrbit *orbit, double jd)
 	M = orbit->MnA + mean_motion;
 	E = solve_kepler_equation(orbit->Ecc, M);
 
-	return position_at_E(orbit, E);
+	return kepler_position_at_E(orbit, E);
 }

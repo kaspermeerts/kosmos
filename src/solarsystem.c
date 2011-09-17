@@ -7,9 +7,6 @@
 
 #include "solarsystem.h"
 
-#define STRINGIFY(s) XSTRINGIFY(s)
-#define XSTRINGIFY(s) #s
-
 /* FIXME: Memory leaks à volonté. First work is using a recursive memory
  * allocator to fix this. */
 extern char *strdup(const char *str); /* FIXME Damnit */
@@ -171,7 +168,7 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 	long num_planets;
 	char secname[16]; /* Enough for 10,000,000 planets */
 	bool success = true;
-	int i;
+	int i, j;
 
 	success = config_get_long(cfg, "Star", "Planets", &num_planets);
 	if (!success)
@@ -229,8 +226,18 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 			return NULL;
 		}
 
+		/* XXX Is this the best place to set this? */
 		planet->orbit.period = M_TWO_PI * 
 				sqrt(CUBE(planet->orbit.SMa) / solsys->star_mu);
+		mat3_euler(RAD(planet->orbit.LAN), 
+				RAD(planet->orbit.Inc),
+				RAD(planet->orbit.APe),
+				planet->orbit.plane_orientation);
+
+		planet->orbit_path = calloc(sizeof(Vec3), planet->num_samples);
+		for (j = 0; j < planet->num_samples; j++)
+			planet->orbit_path[j] = kepler_position_at_true_anomaly(
+					&planet->orbit, M_TWO_PI / planet->num_samples * j);	
 	}	
 
 	return solsys;
@@ -270,18 +277,4 @@ SolarSystem *solsys_load(const char *filename)
 	al_fclose(file);
 
 	return ret;
-}
-
-int main(int argc, char **argv)
-{
-	char *filename;
-
-	if (argc < 2)
-		filename = STRINGIFY(ROOT_PATH) "/data/sol.ini";
-	else
-		filename = argv[1];
-
-	solsys_load(filename);
-
-	return 0;
 }
