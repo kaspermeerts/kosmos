@@ -26,13 +26,13 @@ void mesh_upload_to_gpu(Mesh *mesh, GLuint program)
 			mesh->normal, GL_STATIC_DRAW);
 	normal_attr = glGetAttribLocation(program, "in_normal");
 	glEnableVertexAttribArray(normal_attr);
-	glVertexAttribPointer(normal_attr, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), 0);
+	glVertexAttribPointer(normal_attr, 3, GL_FLOAT, GL_FALSE, sizeof(Normal), 0);
 
 	/* Triangles */
-	glGenBuffers(1, &mesh->triangle_vbo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->triangle_vbo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (size_t) mesh->num_triangles * 
-			sizeof(Triangle), mesh->triangle, GL_STATIC_DRAW);
+	glGenBuffers(1, &mesh->ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (size_t) mesh->num_indices * 
+			sizeof(GLuint), mesh->index, GL_STATIC_DRAW);
 
 	return;
 }

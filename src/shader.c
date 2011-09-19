@@ -5,6 +5,7 @@
 #include <allegro5/allegro.h>
 
 #include "shader.h"
+#include "log.h"
 
 static GLuint shader_load(const char *file, GLenum type);
 static void show_info_log(GLuint object, PFNGLGETSHADERIVPROC glGet__iv,
@@ -32,7 +33,7 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 	shader->program = glCreateProgram();
 	if (shader->program == 0)
 	{
-		fprintf(stderr, "Couldn't create GL program\n");
+		log_err("Couldn't create GL program\n");
 		goto errorout;
 	}
 
@@ -40,7 +41,7 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 	shader->fragment_shader = shader_load(fragment_file, GL_FRAGMENT_SHADER);
 	if (shader->vertex_shader == 0 || shader->fragment_shader == 0)
 	{
-		fprintf(stderr, "Error loading shaders\n");
+		log_err("Error loading shaders\n");
 		goto errorout;
 	}
 	glAttachShader(shader->program, shader->vertex_shader);
@@ -50,11 +51,14 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 	glGetProgramiv(shader->program, GL_LINK_STATUS, &link_status);
 	if (link_status == GL_FALSE)
 	{
-		fprintf(stderr, "Error linking shader program\n");
+		log_err("Error linking shader program\n");
 		show_info_log(shader->program, glGetProgramiv, glGetProgramInfoLog);
 		goto errorout;
 	}
 	glBindFragDataLocation(shader->program, 0, "fragColour");
+
+	log_dbg("Loaded shader\n");
+	show_info_log(shader->program, glGetProgramiv, glGetProgramInfoLog);
 
 	return shader;
 
@@ -73,31 +77,31 @@ static GLuint shader_load(const char *file, GLenum type)
 
 	if ((shader = glCreateShader(type)) == 0)
 	{
-		fprintf(stderr, "Failed to create shader\n");
+		log_err("Failed to create shader\n");
 		goto errorout;
 	}
 
 	if ((fd = al_fopen(file, "rb")) == NULL)
 	{
-		fprintf(stderr, "Couldn't open file: %s\n", file);
+		log_err("Couldn't open file: %s\n", file);
 		goto errorout;
 	}
 
 	if ((filesize = al_fsize(fd)) < 0)
 	{
-		fprintf(stderr, "Couldn't determine size of file: %s\n", file);
+		log_err("Couldn't determine size of file: %s\n", file);
 		goto errorout;
 	}
 
 	if ((contents = malloc((size_t) filesize + 1)) == NULL)
 	{
-		fprintf(stderr, "Couldn't allocate %ld bytes of memory\n", filesize + 1);
+		log_err("Couldn't allocate %ld bytes of memory\n", filesize + 1);
 		goto errorout;
 	}
 
 	if (al_fread(fd, contents, (size_t) filesize) != (size_t) filesize)
 	{
-		fprintf(stderr, "Error reading shader file %s\n", file);
+		log_err("Error reading shader file %s\n", file);
 		goto errorout;
 	}
 	al_fclose(fd);
@@ -114,7 +118,7 @@ static GLuint shader_load(const char *file, GLenum type)
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_status);
 	if (compile_status == GL_FALSE)
 	{
-		fprintf(stderr, "Error compiling shader\n");
+		log_err("Error compiling shader\n");
 		show_info_log(shader, glGetShaderiv, glGetShaderInfoLog);
 		goto errorout;
 	}
@@ -135,9 +139,11 @@ static void show_info_log(GLuint object, PFNGLGETSHADERIVPROC glGet__iv,
 	char *log;
 
 	glGet__iv(object, GL_INFO_LOG_LENGTH, &log_len);
+	if (log_len <= 1)
+		return;
 	log = malloc((size_t) log_len);
 	glGet__InfoLog(object, log_len, NULL, log);
-	fprintf(stderr, "%s", log);
+	log_err("Info log:\n%s", log);
 	free(log);
 	return;
 }

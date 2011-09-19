@@ -148,7 +148,6 @@ int main(int argc, char **argv)
 	glUniform1f(glGetUniformLocation(shader->program, "shininess"), shininess);
 
 	/* Start rendering */
-
 	while(1)
 	{
 		ALLEGRO_EVENT ev;
@@ -214,7 +213,7 @@ int main(int argc, char **argv)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1, 
-			mesh->num_triangles*3, GL_UNSIGNED_INT, NULL);
+			mesh->num_indices, GL_UNSIGNED_INT, NULL);
 
 		al_flip_display();
 		calcfps();
@@ -224,7 +223,7 @@ out:
 	free(mesh->name);
 	free(mesh->vertex);
 	free(mesh->normal);
-	free(mesh->triangle);
+	free(mesh->index);
 	free(mesh);
 
 	shader_delete(shader);

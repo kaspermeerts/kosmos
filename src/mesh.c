@@ -8,6 +8,7 @@
 
 #include "mathlib.h"
 #include "mesh.h"
+#include "log.h"
 
 enum vertex_props {
 	PROP_X,
@@ -31,16 +32,17 @@ Mesh *mesh_import(const char *filename)
 
 	mesh = malloc(sizeof(Mesh));
 
-	tail = strrchr(filename, '/');
 	/* TODO: Other fileformats */
 	if (mesh_load_ply(mesh, filename) == false)
 	{
-		fprintf(stderr, "Couldn't load model at %s\n", filename);
+		log_err("Couldn't load model at %s\n", filename);
 		free(mesh);
 		return NULL;
 	}
 
+	tail = strrchr(filename, '/');
 	mesh->name = strdup((tail ? tail + 1 : filename));
+	log_dbg("Loaded mesh %s\n", mesh->name);
 	generate_normals(mesh); /* FIXME: What if we already have normals? */
 	unitize_mesh(mesh);
 
@@ -68,7 +70,7 @@ static bool mesh_load_ply(Mesh *mesh, const char *filename)
 		{
 			if (ninstances <= 0)
 			{
-				fprintf(stderr, "Invalid number of vertices: %ld\n", ninstances);
+				log_err("Invalid number of vertices: %ld\n", ninstances);
 				goto out;
 			}
 			mesh->num_vertices = ninstances;
@@ -77,14 +79,14 @@ static bool mesh_load_ply(Mesh *mesh, const char *filename)
 		{
 			if (ninstances <= 0)
 			{
-				fprintf(stderr, "Invalid number of faces: %ld\n", ninstances);
+				log_err("Invalid number of faces: %ld\n", ninstances);
 				goto out;
 			}
-			mesh->num_triangles = ninstances;
-			mesh->triangle = calloc((size_t) ninstances, sizeof(Triangle));
+			mesh->num_indices = ninstances*3;
+			mesh->index = calloc((size_t) ninstances*3, sizeof(GLuint));
 		} else
 		{
-			fprintf(stderr, "Unknown element: %s\n", name);
+			log_err("Unknown element: %s\n", name);
 			goto out;
 		}
 	}
@@ -127,7 +129,7 @@ static int vertex_cb(p_ply_argument argument)
 		break;
 	default:
 		/* Shouldn't happen */
-		fprintf(stderr, "Internal consistency error\n");
+		log_err("Internal consistency error\n");
 		return 0;
 		break;
 	}
@@ -149,14 +151,14 @@ static int face_cb(p_ply_argument argument)
 	if (len != 3)
 	{
 		/* TODO: Tesselate? */
-		fprintf(stderr, "Malformed face\n");
+		log_err("Malformed face\n");
 		return 0;
 	}
 	
 	if (value_index == -1)
 		return 1;
 
-	mesh->triangle[index].vertex[value_index] = ply_get_argument_value(argument);
+	mesh->index[3*index + value_index] = ply_get_argument_value(argument);
 
 	return 1;
 }
@@ -182,14 +184,14 @@ static void generate_normals(Mesh *mesh)
 	}
 
 	/* 2. Accumulate the normals of each face onto the vertices */
-	for (i = 0; i < mesh->num_triangles; i++)
+	for (i = 0; i < mesh->num_indices; i+=3)
 	{
 		Normal normal;
 		GLuint i1, i2, i3;
 
-		i1 = mesh->triangle[i].vertex[0];
-		i2 = mesh->triangle[i].vertex[1];
-		i3 = mesh->triangle[i].vertex[2];
+		i1 = mesh->index[i + 0];
+		i2 = mesh->index[i + 1];
+		i3 = mesh->index[i + 2];
 
 		normal = calc_face_normal(mesh->vertex[i1], mesh->vertex[i2], 
 				mesh->vertex[i3]);

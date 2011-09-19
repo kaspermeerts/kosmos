@@ -13,10 +13,6 @@ typedef struct TexCoord {
 	GLfloat u, v;
 } TexCoord;
 
-typedef struct Triangle {
-	GLuint vertex[3];
-} Triangle ;
-
 typedef struct Mesh {
 	char *name;
 
@@ -32,9 +28,9 @@ typedef struct Mesh {
 	TexCoord *texcoord;
 	GLuint texcoord_vbo;
 #endif
-	int num_triangles;
-	Triangle *triangle;
-	GLuint triangle_vbo;
+	int num_indices;
+	GLuint *index;
+	GLuint ibo;
 } Mesh;
 
 Mesh *mesh_import(const char *filename);

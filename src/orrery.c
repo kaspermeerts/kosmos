@@ -110,25 +110,19 @@ static void render(Camera *cam, Mesh *mesh)
 
 	glmLoadIdentity(modelViewMatrix);
 	cam_view_matrix(cam, modelViewMatrix); /* view */
-	glmTranslate(modelViewMatrix, 0, 0, 0);
-	glmScaleUniform(modelViewMatrix, 700e6);
-	upload_uniforms();
-
-	glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1, 
-		mesh->num_triangles*3, GL_UNSIGNED_INT, NULL);
 
 	for (i = 0; i < solsys->num_planets; i++)
 	{
 		Vec3 v = kepler_position_at_time(&solsys->planet[i].orbit, t);
 
-		glmLoadIdentity(modelViewMatrix);
-		cam_view_matrix(cam, modelViewMatrix);
+		glmPushMatrix(&modelViewMatrix);
 		glmTranslate(modelViewMatrix, v.x, v.y, v.z);
 		glmScaleUniform(modelViewMatrix, 70000e6);
 		upload_uniforms();
+		glmPopMatrix(&modelViewMatrix);
 
 		glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1, 
-			mesh->num_triangles*3, GL_UNSIGNED_INT, NULL);
+			mesh->num_indices, GL_UNSIGNED_INT, NULL);
 	}
 
 	al_flip_display();
@@ -150,6 +144,8 @@ int main(int argc, char **argv)
 		filename = argv[1];
 
 	solsys = solsys_load(STRINGIFY(ROOT_PATH) "/data/sol.ini");
+	if (solsys == NULL)
+		return 1;
 
 	mesh = mesh_import(filename);
 	if (mesh == NULL)
@@ -161,7 +157,7 @@ int main(int argc, char **argv)
 	cam.width = 1024;
 	cam.height = 768;
 	cam.zNear = 1e6;
-	cam.zFar = 4.5e15;
+	cam.zFar = 4.5e12;
 	init_allegro(&cam);
 	cam_lookat(&cam, position, target, up);
 
@@ -252,7 +248,7 @@ out:
 	free(mesh->name);
 	free(mesh->vertex);
 	free(mesh->normal);
-	free(mesh->triangle);
+	free(mesh->index);
 	free(mesh);
 
 	shader_delete(shader);

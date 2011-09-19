@@ -10,7 +10,7 @@ static void mesh_print(Mesh *mesh)
 	printf("Mesh %s\n", mesh->name);
 	printf("%d Vertices\n", mesh->num_vertices);
 	printf("%d Normals\n", mesh->num_normals);
-	printf("%d Triangles\n", mesh->num_triangles);
+	printf("%d Triangles\n", mesh->num_indices / 3);
 }
 
 int main(int argc, char **argv)
@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 	free(mesh->name);
 	free(mesh->normal);
 	free(mesh->vertex);
-	free(mesh->triangle);
+	free(mesh->index);
 	free(mesh);
 
 	return 0;

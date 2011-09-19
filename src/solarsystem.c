@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <allegro5/allegro.h>
 
+#include "log.h"
 #include "solarsystem.h"
 
 /* FIXME: Memory leaks à volonté. First work is using a recursive memory
@@ -31,28 +32,34 @@ static bool config_get_long(ALLEGRO_CONFIG *cfg, const char *sec,
 	value = al_get_config_value(cfg, sec, key);
 	if (value == NULL)
 	{
-		fprintf(stderr, "Error in section %s: Key %s not found\n", sec, key);
+		log_err("Section %s: Key %s not found\n", sec, key);
 		return false;
 	}
 	if (value[0] == '\0')
 	{
-		fprintf(stderr, "Error in section %s: Key %s empty\n", sec, key);
+		log_err("Section %s: Key %s empty\n", sec, key);
 		return false;
 	}
 
 	saved_errno = errno;
 	errno = 0;
 	*ret = strtol(value, &endptr, 10);
-	if (errno != 0 || *endptr != '\0')
+	if (errno != 0)
 	{
-		/* TODO: Add strerror() */
-		fprintf(stderr, "Error in section %s: Key %s invalid\n", sec, key);
+		log_err("Section %s: Key %s invalid: %s\n", sec, key,
+				strerror(errno));
 		return false;
 	}
 	errno = saved_errno;
+	
+	if (*endptr != '\0')
+	{
+		log_err("Section %s: Key %s invalid\n", sec, key);
+		return false;
+	}
 	if (endptr == value)
 	{
-		fprintf(stderr, "Error in section %s: Key %s empty\n", sec, key);
+		log_err("Section %s: Key %s empty\n", sec, key);
 		return false;
 	}
 
@@ -70,23 +77,29 @@ static bool config_get_double(ALLEGRO_CONFIG *cfg, const char *sec,
 	value = al_get_config_value(cfg, sec, key);
 	if (value == NULL)
 	{
-		fprintf(stderr, "Error in section %s: Key %s not found\n", sec, key);
+		log_err("Section %s: Key %s not found\n", sec, key);
 		return false;
 	}
 
 	saved_errno = errno;
 	errno = 0;
 	*ret = strtod(value, &endptr);
-	if (errno != 0 || *endptr != '\0')
+	if (errno != 0)
 	{
-		/* TODO: Add strerror() */
-		fprintf(stderr, "Error in section %s: Key %s invalid\n", sec, key);
+		log_err("Section %s: Key %s invalid: %s\n", sec, key,
+				strerror(errno));
 		return false;
 	}
 	errno = saved_errno;
+	
+	if (*endptr != '\0')
+	{
+		log_err("Section %s: Key %s invalid\n", sec, key);
+		return false;
+	}
 	if (endptr == value)
 	{
-		fprintf(stderr, "Error in section %s: Key %s empty\n", sec, key);
+		log_err("Section %s: Key %s empty\n", sec, key);
 		return false;
 	}
 
@@ -103,19 +116,19 @@ static bool config_get_string(ALLEGRO_CONFIG *cfg, const char *sec,
 	value = al_get_config_value(cfg, sec, key);
 	if (value == NULL)
 	{
-		fprintf(stderr, "Error in section %s: Key %s not found\n", sec, key);
+		log_err("Error in section %s: Key %s not found\n", sec, key);
 		return false;
 	}
 	if (value[0] == '\0')
 	{
-		fprintf(stderr, "Error in section %s: Key %s empty\n", sec, key);
+		log_err("Error in section %s: Key %s empty\n", sec, key);
 		return false;
 	}
 
 	dupstr = strdup(value);
 	if (dupstr == NULL)
 	{
-		fprintf(stderr, "Out of memory\n");
+		log_err("Out of memory\n");
 		return false;
 	}
 
@@ -123,28 +136,25 @@ static bool config_get_string(ALLEGRO_CONFIG *cfg, const char *sec,
 
 	return true;
 }
+
 static bool load_planet(ALLEGRO_CONFIG *cfg, const char *sec, 
 		Planet *planet)
 {
-	bool success;
-	
 	if (al_get_first_config_entry(cfg, sec, NULL) == NULL)
 	{
-		fprintf(stderr, "No section for %s\n", sec);
+		log_err("Section %s not in file\n", sec);
 		return false;
 	}
 
-	success = config_get_string(cfg, sec, "Name", &planet->name);
-	if (!success)
+	if (!config_get_string(cfg, sec, "Name", &planet->name))
 	{
-		fprintf(stderr, "Planet name derp\n"); /* FIXME: I need a decent logging system. This just sucks */
+		log_err("Couldn't find %s's name\n", sec);
 		return false;
 	}
 
-	success = config_get_double(cfg, sec, "Mass", &planet->mass);
-	if (!success)
+	if (!config_get_double(cfg, sec, "Mass", &planet->mass))
 	{
-		fprintf(stderr, "Planet mass derp\n");
+		log_err("Couldn't find %s's mass\n", sec);
 		return false;
 	}
 
@@ -155,7 +165,7 @@ static bool load_planet(ALLEGRO_CONFIG *cfg, const char *sec,
 	    !config_get_double(cfg, sec, "APe", &planet->orbit.APe) ||
 	    !config_get_double(cfg, sec, "MnA", &planet->orbit.MnA))
 	{
-		fprintf(stderr, "Derp loading the orbital elements\n");
+		log_err("Couldn't load orbital elements of %s\n", sec);
 		return false;
 	}
 
@@ -167,49 +177,44 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 	SolarSystem *solsys;
 	long num_planets;
 	char secname[16]; /* Enough for 10,000,000 planets */
-	bool success = true;
-	int i, j;
+	int i;
 
-	success = config_get_long(cfg, "Star", "Planets", &num_planets);
-	if (!success)
+	if (!config_get_long(cfg, "Star", "Planets", &num_planets))
 	{
-		fprintf(stderr, "No number of planets in file\n");
+		log_err("No number of planets in file\n");
 		return NULL;
 	}
 	if (num_planets < 0)
 	{
-		fprintf(stderr, "Number of planets must be positive\n");
+		log_err("Number of planets must be positive\n");
 		return NULL;
 	}
 
 	solsys = malloc(sizeof(SolarSystem) + num_planets*sizeof(Planet));
 	if (solsys == NULL)
 	{
-		fprintf(stderr, "Out of memory\n");
+		log_err("Out of memory\n");
 		return NULL;
 	}
 	solsys->num_planets = num_planets;
 
-	success = config_get_string(cfg, "Star", "Name", &solsys->name);
-	if (!success)
+	if (!config_get_string(cfg, "Star", "Name", &solsys->name))
 	{
-		fprintf(stderr, "Star has no name\n");
+		log_err("Star has no name\n");
 		free(solsys);
 		return NULL;
 	}
 
-	success = config_get_double(cfg, "Star", "Mass", &solsys->star_mass);
-	if (!success)
+	if (!config_get_double(cfg, "Star", "Mass", &solsys->star_mass))
 	{
-		fprintf(stderr, "No mass given\n");
+		log_err("No mass given\n");
 		free(solsys->name);
 		free(solsys);
 		return NULL;
 	}
 
-	success = config_get_double(cfg, "Star", "Gravitational parameter", 
-			&solsys->star_mu);
-	if (!success)
+	if (!config_get_double(cfg, "Star", "Gravitational parameter", 
+			&solsys->star_mu))
 		solsys->star_mu = GRAV_CONST * solsys->star_mass;
 
 	for (i = 0; i < solsys->num_planets; i++)
@@ -220,13 +225,14 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 		
 		if (load_planet(cfg, secname, planet) == false)
 		{
-			fprintf(stderr, "Failure to load planet %d\n", i + 1);
+			log_err("Failure to load planet %d\n", i + 1);
 			free(solsys->name);
 			free(solsys);
 			return NULL;
 		}
 
 		/* XXX Is this the best place to set this? */
+		planet->orbit.epoch = 0;
 		planet->orbit.period = M_TWO_PI * 
 				sqrt(CUBE(planet->orbit.SMa) / solsys->star_mu);
 		mat3_euler(RAD(planet->orbit.LAN), 
@@ -234,10 +240,12 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 				RAD(planet->orbit.APe),
 				planet->orbit.plane_orientation);
 
+		/*
 		planet->orbit_path = calloc(sizeof(Vec3), planet->num_samples);
 		for (j = 0; j < planet->num_samples; j++)
 			planet->orbit_path[j] = kepler_position_at_true_anomaly(
 					&planet->orbit, M_TWO_PI / planet->num_samples * j);	
+		*/
 	}	
 
 	return solsys;
@@ -248,12 +256,11 @@ SolarSystem *solsys_load(const char *filename)
 	SolarSystem *ret;
 	ALLEGRO_FILE *file;
 	ALLEGRO_CONFIG *cfg;
-	int i;
 
 	file = al_fopen(filename, "rb");
 	if (file == NULL)
 	{
-		fprintf(stderr, "Error opening file %s\n", filename);
+		log_err("Error opening file %s\n", filename);
 		return NULL;
 	}
 
@@ -261,17 +268,16 @@ SolarSystem *solsys_load(const char *filename)
 	if (cfg == NULL)
 	{
 		al_fclose(file);
-		fprintf(stderr, "Not a valid config file\n");
+		log_err("Not a valid config file\n");
 		return NULL;
 	}
 
 	ret = load_from_config(cfg);
 
-	printf("Finished loading a solarsystem with %d planets\n", ret->num_planets);
-	printf("%s", ret->planet[0].name);
-	for (i = 1; i < ret->num_planets; i++)
-		printf(", %s", ret->planet[i].name);
-	printf("\n");
+	if (ret == NULL)
+		log_err("Couldn't load solarsystem from file: %s\n", filename);
+	else
+		log_dbg("Loaded a solarsystem with %d planets\n", ret->num_planets);
 	
 	al_destroy_config(cfg);
 	al_fclose(file);
