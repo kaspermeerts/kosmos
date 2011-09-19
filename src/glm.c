@@ -9,7 +9,7 @@
 #include "mathlib.h"
 
 static void matrix_mul_matrix(double *c, double *a, double *b);
-static void matrix_from_quat(double m[16], const Quaternion p);
+static void mat4_from_mat3(double a[16], Mat3 m);
 
 static void matrix_mul_matrix(double *c, double *a, double *b)
 {
@@ -29,32 +29,14 @@ static void matrix_mul_matrix(double *c, double *a, double *b)
 #undef A
 }
 
-/* The Euler-Rodrigues formula */
-static void matrix_from_quat(double m[16], const Quaternion p)
+static void mat4_from_mat3(double a[16], Mat3 b)
 {
-	double w = p.w, x = p.x, y = p.y, z = p.z;
-
-#define M(i, j) m[4*j + i]
-	M(0, 0) = w*w + x*x - y*y - z*z;
-	M(0, 1) = 2*x*y - 2*w*z;
-	M(0, 2) = 2*x*z + 2*w*y;
-	M(0, 3) = 0.0;
-
-	M(1, 0) = 2*x*y + 2*w*z;
-	M(1, 1) = w*w - x*x + y*y - z*z;
-	M(1, 2) = 2*y*z - 2*w*x;
-	M(1, 3) = 0.0;
-
-	M(2, 0) = 2*x*z - 2*w*y;
-	M(2, 1) = 2*y*z + 2*w*x;
-	M(2, 2) = w*w - x*x - y*y + z*z;
-	M(2, 3) = 0.0;
-
-	M(3, 0) = 0.0;
-	M(3, 1) = 0.0;
-	M(3, 2) = 0.0;
-	M(3, 3) = 1.0;
-#undef M
+#define A(i, j) a[4*j + i]
+#define B(i, j) b[3*j + i]
+	A(0,0) = B(0,0); A(0,1) = B(0,1); A(0,2) = B(0,2); A(0,3) = 0.0;
+	A(1,0) = B(1,0); A(1,1) = B(1,1); A(1,2) = B(1,2); A(1,3) = 0.0;
+	A(2,0) = B(2,0); A(2,1) = B(2,1); A(2,2) = B(2,2); A(2,3) = 0.0;
+	A(3,0) = 0.0;    A(3,1) = 0.0;    A(3,2) = 0.0;    A(3,3) = 1.0;
 }
 
 GLvoid glmPrintMatrix(Matrix *mat)
@@ -85,36 +67,40 @@ GLvoid glmLoadIdentity(Matrix *mat)
 
 Matrix *glmNewMatrixStack(void)
 {
-	return glmPushMatrix(NULL);
+	Matrix *new = NULL;
+	glmPushMatrix(&new);
+	glmLoadIdentity(new);
+	return new;
 }
 
-Matrix *glmPopMatrix(Matrix *mat)
+GLvoid glmPopMatrix(Matrix **mat)
 {
 	Matrix *next;
 
-	next = mat->next;
-	free(mat);
-	return next;
+	next = (*mat)->next;
+	free(*mat);
+	*mat = next;
 }
 
-Matrix *glmPushMatrix(Matrix *mat)
+GLvoid glmPushMatrix(Matrix **mat)
 {
 	Matrix *new;
 
 	new = malloc(sizeof(Matrix));
 	if (new == NULL)
-		return mat;
+		return;
 
-	glmLoadIdentity(new);
-	new->next = mat;
+	if (*mat != NULL)
+		memcpy(new->m, (*mat)->m, sizeof(double) * 16);
 
-	return new;
+	new->next = *mat;
+	*mat = new;
 }
 
 GLvoid glmFreeMatrixStack(Matrix *mat)
 {
 	while(mat != NULL)
-		mat = glmPopMatrix(mat);
+		glmPopMatrix(&mat);
 }
 
 GLvoid glmLoadMatrix(Matrix *mat, GLdouble m[16])
@@ -129,11 +115,13 @@ GLvoid glmMultMatrix(Matrix *mat, GLdouble m[16])
 
 GLvoid glmMultQuaternion(Matrix *mat, Quaternion q)
 {
-	double m[16];
+	Mat3 m3;
+	double m4[16];
+	
+	mat3_from_quat(m3, q);
+	mat4_from_mat3(m4, m3);
 
-	matrix_from_quat(m, q);
-
-	glmMultMatrix(mat, m);
+	glmMultMatrix(mat, m4);
 }
 
 /* Multiply m on the right with a scaling matrix */

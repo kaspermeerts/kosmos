@@ -106,6 +106,69 @@ Quaternion quat_trackball(int dx, int dy, double radius)
 	return q;
 }
 
+Quaternion quat_from_mat3(Mat3 m)
+{
+	Quaternion q;
+	double T;
+#define M(i, j) m[3*j + i]
+	/* To understand this, research "convert orthogonal matrix to quaternion"
+	 * This algorithm comes from "The Matrix and Quaternion FAQ" */
+	T = 1 + M(0,0) + M(1,1) + M(2,2);
+	if (T > 1e-3)
+	{
+		q.w = 0.5*sqrt(T);
+		q.x = (M(2,1) - M(1,2)) / (4*q.w);
+		q.y = (M(0,2) - M(2,0)) / (4*q.w);
+		q.z = (M(1,0) - M(0,1)) / (4*q.w);
+	} else
+	{
+		if (M(0,0) > M(1,1) && M(0,0) > M(2,2))
+		{
+			T = sqrt(1 + M(0,0) - M(1,1) - M(2,2));
+			q.w = (M(2,1) - M(1,2)) / (2*T);
+			q.x = 0.5*T;
+			q.y = (M(0,1) + M(1,0)) / (2*T);
+			q.z = (M(0,2) + M(2,0)) / (2*T);
+		} else if (M(1,1) > M(2,2))
+		{
+			T = sqrt(1 - M(0,0) + M(1,1) - M(2,2));
+			q.w = (M(0,2) - M(2,0)) / (2*T);
+			q.x = (M(0,1) + M(1,0)) / (2*T);
+			q.y = 0.5*T;
+			q.z = (M(1,2) + M(2,1)) / (2*T);
+		} else
+		{
+			T = sqrt(1 - M(0,0) - M(1,1) + M(2,2));
+			q.w = (M(1,0) - M(0,1)) / (2*T);
+			q.x = (M(0,2) + M(2,0)) / (2*T);
+			q.y = (M(1,2) + M(2,1)) / (2*T);
+			q.z = 0.5*T;
+		}
+	}
+#undef M
+	return q;
+}
+
+/* The Euler-Rodrigues formula */
+void mat3_from_quat(Mat3 m, Quaternion p)
+{
+	double w = p.w, x = p.x, y = p.y, z = p.z;
+
+#define M(i, j) m[3*j + i]
+	M(0, 0) = w*w + x*x - y*y - z*z;
+	M(0, 1) = 2*x*y - 2*w*z;
+	M(0, 2) = 2*x*z + 2*w*y;
+
+	M(1, 0) = 2*x*y + 2*w*z;
+	M(1, 1) = w*w - x*x + y*y - z*z;
+	M(1, 2) = 2*y*z - 2*w*x;
+
+	M(2, 0) = 2*x*z - 2*w*y;
+	M(2, 1) = 2*y*z + 2*w*x;
+	M(2, 2) = w*w - x*x - y*y + z*z;
+#undef M
+}
+
 Vec3 quat_transform(Quaternion q, Vec3 v)
 {
 	Vec3 v2;

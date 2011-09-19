@@ -6,6 +6,8 @@
 
 void cam_lookat(Camera *cam, Vec3 pos, Vec3 target, Vec3 up)
 {
+	Quaternion q;
+	Mat3 m;
 	Vec3 forward, side;
 
 	/* Create an orthonormal basis */
@@ -13,45 +15,14 @@ void cam_lookat(Camera *cam, Vec3 pos, Vec3 target, Vec3 up)
 	side    = vec3_normalize(vec3_cross(forward, up));
 	up      = vec3_cross(side, forward); /* Already normalized */
 
-	/* Create a quaternion out of these */
-	Quaternion q;
-	double T;
-
-	/* To understand this, research "convert orthogonal matrix to quaternion"
-	 * This algorithm comes from "The Matrix and Quaternion FAQ" */
 	forward = vec3_scale(forward, -1); /* We are looking down on the z-axis */
-	T = 1 + side.x + up.y + forward.z;
-	if (T > 1e-3)
-	{
-		q.w = 0.5*sqrt(T);
-		q.x = (up.z - forward.y) / (4*q.w);
-		q.y = (forward.x - side.z) / (4*q.w);
-		q.z = (side.y - up.x) / (4*q.w);
-	} else
-	{
-		if (side.x > up.y && side.x > forward.z)
-		{
-			T = sqrt(1 + side.x - up.y - forward.z);
-			q.w = (up.z - forward.y) / (2*T);
-			q.x = 0.5*T;
-			q.y = (up.x + side.y) / (2*T);
-			q.z = (forward.x + side.z) / (2*T);
-		} else if (up.y > forward.z)
-		{
-			T = sqrt(1 - side.x + up.y - forward.z);
-			q.w = (forward.x - side.z) / (2*T);
-			q.x = (up.x + side.y) / (2*T);
-			q.y = 0.5*T;
-			q.z = (forward.y + up.z) / (2*T);
-		} else
-		{
-			T = sqrt(1 - side.x - up.y + forward.z);
-			q.w = (side.y - up.x) / (2*T);
-			q.x = (forward.x + side.z) / (2*T);
-			q.y = (forward.y + up.z) / (2*T);
-			q.z = 0.5*T;
-		}
-	}
+	/* Orthonormal matrix that defines the rotation */
+#define M(i, j) m[3*j + i]
+	M(0,0) = side.x; M(0,1) = up.x; M(0,2) = forward.x;
+	M(1,0) = side.y; M(1,1) = up.y; M(1,2) = forward.y;
+	M(2,0) = side.z; M(2,1) = up.z; M(2,2) = forward.z;
+#undef M
+	q = quat_from_mat3(m);
 
 	cam->target = target;
 	cam->position = pos;
