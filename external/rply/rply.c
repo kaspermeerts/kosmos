@@ -15,6 +15,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "rply.h"
 
@@ -36,7 +37,7 @@ static const char *const ply_storage_mode_list[] = {
 
 static const char *const ply_type_list[] = {
     "int8", "uint8", "int16", "uint16", 
-    "int32", "uint32", "float32", "float64",
+    "int32_t", "uint32_t", "float32", "float64",
     "char", "uchar", "short", "ushort", 
     "int", "uint", "float", "double",
     "list", NULL
@@ -58,12 +59,12 @@ static const char *const ply_type_list[] = {
  * ---------------------------------------------------------------------- */
 typedef struct t_ply_argument_ {
     p_ply_element element;
-    long instance_index;
+    int32_t instance_index;
     p_ply_property property;
-    long length, value_index;
+    int32_t length, value_index;
     double value;
     void *pdata;
-    long idata;
+    int32_t idata;
 } t_ply_argument;
 
 /* ----------------------------------------------------------------------
@@ -81,7 +82,7 @@ typedef struct t_ply_property_ {
     e_ply_type type, value_type, length_type;
     p_ply_read_cb read_cb;
     void *pdata;
-    long idata;
+    int32_t idata;
 } t_ply_property; 
 
 /* ----------------------------------------------------------------------
@@ -96,9 +97,9 @@ typedef struct t_ply_property_ {
  * ---------------------------------------------------------------------- */
 typedef struct t_ply_element_ {
     char name[WORDSIZE];
-    long ninstances;
+    int32_t ninstances;
     p_ply_property property;
-    long nproperties;
+    int32_t nproperties;
 } t_ply_element;
 
 /* ----------------------------------------------------------------------
@@ -154,11 +155,11 @@ typedef struct t_ply_ {
     e_ply_io_mode io_mode;
     e_ply_storage_mode storage_mode;
     p_ply_element element;
-    long nelements;
+    int32_t nelements;
     char *comment;
-    long ncomments;
+    int32_t ncomments;
     char *obj_info;
-    long nobj_infos;
+    int32_t nobj_infos;
     FILE *fp;
     int c;
     char buffer[BUFFERSIZE];
@@ -166,8 +167,8 @@ typedef struct t_ply_ {
     p_ply_idriver idriver;
     p_ply_odriver odriver;
     t_ply_argument argument;
-    long welement, wproperty;
-    long winstance_index, wvalue_index, wlength;
+    int32_t welement, wproperty;
+    int32_t winstance_index, wvalue_index, wlength;
     p_ply_error_cb error_cb;
 } t_ply;
 
@@ -223,7 +224,7 @@ static void ply_property_init(p_ply_property property);
 static p_ply ply_alloc(void);
 static p_ply_element ply_grow_element(p_ply ply);
 static p_ply_property ply_grow_property(p_ply ply, p_ply_element element);
-static void *ply_grow_array(p_ply ply, void **pointer, long *nmemb, long size);
+static void *ply_grow_array(p_ply ply, void **pointer, int32_t *nmemb, int32_t size);
 
 /* ----------------------------------------------------------------------
  * Special functions
@@ -341,9 +342,9 @@ int ply_read_header(p_ply ply) {
     return 1;
 }
 
-long ply_set_read_cb(p_ply ply, const char *element_name, 
+int32_t ply_set_read_cb(p_ply ply, const char *element_name, 
         const char* property_name, p_ply_read_cb read_cb, 
-        void *pdata, long idata) {
+        void *pdata, int32_t idata) {
     p_ply_element element = NULL; 
     p_ply_property property = NULL;
     assert(ply && element_name && property_name);
@@ -358,7 +359,7 @@ long ply_set_read_cb(p_ply ply, const char *element_name,
 }
 
 int ply_read(p_ply ply) {
-    long i;
+    int32_t i;
     p_ply_argument argument;
     assert(ply && ply->fp && ply->io_mode == PLY_READ);
     argument = &ply->argument;
@@ -408,7 +409,7 @@ p_ply ply_create(const char *name, e_ply_storage_mode storage_mode,
     return ply;
 }
 
-int ply_add_element(p_ply ply, const char *name, long ninstances) {
+int ply_add_element(p_ply ply, const char *name, int32_t ninstances) {
     p_ply_element element = NULL;
     assert(ply && ply->fp && ply->io_mode == PLY_WRITE);
     assert(name && strlen(name) < WORDSIZE && ninstances >= 0);
@@ -504,7 +505,7 @@ int ply_add_obj_info(p_ply ply, const char *obj_info) {
 }
 
 int ply_write_header(p_ply ply) {
-    long i, j;
+    int32_t i, j;
     assert(ply && ply->fp && ply->io_mode == PLY_WRITE);
     assert(ply->element || ply->nelements == 0); 
     assert(!ply->element || ply->nelements > 0); 
@@ -520,7 +521,7 @@ int ply_write_header(p_ply ply) {
         p_ply_element element = &ply->element[i];
         assert(element->property || element->nproperties == 0); 
         assert(!element->property || element->nproperties > 0); 
-        if (fprintf(ply->fp, "element %s %ld\n", element->name, 
+        if (fprintf(ply->fp, "element %s %d\n", element->name, 
                     element->ninstances) <= 0) goto error;
         for (j = 0; j < element->nproperties; j++) {
             p_ply_property property = &element->property[j];
@@ -554,7 +555,7 @@ int ply_write(p_ply ply, double value) {
     if (property->type == PLY_LIST) {
         if (ply->wvalue_index == 0) {
             type = property->length_type;
-            ply->wlength = (long) value;
+            ply->wlength = (int32_t) value;
         } else type = property->value_type;
     } else {
         type = property->type;
@@ -585,7 +586,7 @@ int ply_write(p_ply ply, double value) {
 }
 
 int ply_close(p_ply ply) {
-    long i;
+    int32_t i;
     assert(ply && ply->fp);
     assert(ply->element || ply->nelements == 0);
     assert(!ply->element || ply->nelements > 0);
@@ -623,10 +624,10 @@ p_ply_element ply_get_next_element(p_ply ply,
 }
 
 int ply_get_element_info(p_ply_element element, const char** name,
-        long *ninstances) {
+        int32_t *ninstances) {
     assert(element);
     if (name) *name = element->name;
-    if (ninstances) *ninstances = (long) element->ninstances;
+    if (ninstances) *ninstances = (int32_t) element->ninstances;
     return 1;
 }
 
@@ -670,7 +671,7 @@ const char *ply_get_next_obj_info(p_ply ply, const char *last) {
  * Callback argument support functions 
  * ---------------------------------------------------------------------- */
 int ply_get_argument_element(p_ply_argument argument, 
-        p_ply_element *element, long *instance_index) {
+        p_ply_element *element, int32_t *instance_index) {
     assert(argument);
     if (!argument) return 0;
     if (element) *element = argument->element;
@@ -679,7 +680,7 @@ int ply_get_argument_element(p_ply_argument argument,
 }
 
 int ply_get_argument_property(p_ply_argument argument, 
-        p_ply_property *property, long *length, long *value_index) {
+        p_ply_property *property, int32_t *length, int32_t *value_index) {
     assert(argument);
     if (!argument) return 0;
     if (property) *property = argument->property;
@@ -689,7 +690,7 @@ int ply_get_argument_property(p_ply_argument argument,
 }
 
 int ply_get_argument_user_data(p_ply_argument argument, void **pdata, 
-        long *idata) {
+        int32_t *idata) {
     assert(argument);
     if (!argument) return 0;
     if (pdata) *pdata = argument->pdata;
@@ -720,7 +721,7 @@ static int ply_read_list_property(p_ply ply, p_ply_element element,
         return 0;
     }
     /* invoke callback to pass length in value field */
-    argument->length = (long) length;
+    argument->length = (int32_t) length;
     argument->value_index = -1;
     argument->value = length;
     if (read_cb && !read_cb(argument)) {
@@ -730,7 +731,7 @@ static int ply_read_list_property(p_ply ply, p_ply_element element,
     /* read list values */
     handler = driver[property->value_type];
     /* for each value in list */
-    for (l = 0; l < (long) length; l++) {
+    for (l = 0; l < (int32_t) length; l++) {
         /* read value from file */
         argument->value_index = l;
         if (!handler(ply, &argument->value)) {
@@ -777,7 +778,7 @@ static int ply_read_property(p_ply ply, p_ply_element element,
 
 static int ply_read_element(p_ply ply, p_ply_element element, 
         p_ply_argument argument) {
-    long j, k;
+    int32_t j, k;
     /* for each element of this type */
     for (j = 0; j < element->ninstances; j++) {
         argument->instance_index = j;
@@ -831,7 +832,7 @@ static p_ply_property ply_find_property(p_ply_element element,
 
 static int ply_check_word(p_ply ply) {
     if (strlen(BLINE(ply)) >= WORDSIZE) {
-        ply_error(ply, "Word too long");
+        ply_error(ply, "Word too int32_t");
         return 0;
     }
     return 1;
@@ -884,7 +885,7 @@ static int ply_read_word(p_ply ply) {
 
 static int ply_check_line(p_ply ply) {
     if (strlen(BLINE(ply)) >= LINESIZE) {
-        ply_error(ply, "Line too long");
+        ply_error(ply, "Line too int32_t");
         return 0;
     }
     return 1;
@@ -1033,9 +1034,9 @@ static p_ply ply_alloc(void) {
 }
 
 static void *ply_grow_array(p_ply ply, void **pointer, 
-        long *nmemb, long size) {
+        int32_t *nmemb, int32_t size) {
     void *temp = *pointer;
-    long count = *nmemb + 1;
+    int32_t count = *nmemb + 1;
     if (!temp) temp = malloc(count*size);
     else temp = realloc(temp, count*size);
     if (!temp) {
@@ -1137,7 +1138,7 @@ static int ply_read_header_property(p_ply ply) {
 
 static int ply_read_header_element(p_ply ply) {
     p_ply_element element = NULL;
-    long dummy;
+    int32_t dummy;
     assert(ply && ply->fp && ply->io_mode == PLY_READ);
     if (strcmp(BWORD(ply), "element")) return 0;
     /* allocate room for new element */
@@ -1148,7 +1149,7 @@ static int ply_read_header_element(p_ply ply) {
     strcpy(element->name, BWORD(ply));
     /* get number of elements of this type */
     if (!ply_read_word(ply)) return 0;
-    if (sscanf(BWORD(ply), "%ld", &dummy) != 1) {
+    if (sscanf(BWORD(ply), "%d", &dummy) != 1) {
         ply_error(ply, "Expected number got '%s'", BWORD(ply));
         return 0;
     }
@@ -1175,27 +1176,27 @@ static void ply_error(p_ply ply, const char *fmt, ...) {
 }
 
 static e_ply_storage_mode ply_arch_endian(void) {
-    unsigned long i = 1;
+    uint32_t i = 1;
     unsigned char *s = (unsigned char *) &i;
     if (*s == 1) return PLY_LITTLE_ENDIAN;
     else return PLY_BIG_ENDIAN;
 }
 
 static int ply_type_check(void) {
-    assert(sizeof(char) == 1);
-    assert(sizeof(unsigned char) == 1);
-    assert(sizeof(short) == 2);
-    assert(sizeof(unsigned short) == 2);
-    assert(sizeof(long) == 8);
-    assert(sizeof(unsigned long) == 8);
+    assert(sizeof(int8_t) == 1);
+    assert(sizeof(uint8_t) == 1);
+    assert(sizeof(int16_t) == 2);
+    assert(sizeof(uint16_t) == 2);
+    assert(sizeof(int32_t) == 4);
+    assert(sizeof(uint32_t) == 4);
     assert(sizeof(float) == 4);
     assert(sizeof(double) == 8);
-    if (sizeof(char) != 1) return 0;
-    if (sizeof(unsigned char) != 1) return 0;
-    if (sizeof(short) != 2) return 0;
-    if (sizeof(unsigned short) != 2) return 0;
-    if (sizeof(long) != 8) return 0;
-    if (sizeof(unsigned long) != 8) return 0;
+    if (sizeof(int8_t) != 1) return 0;
+    if (sizeof(uint8_t) != 1) return 0;
+    if (sizeof(int16_t) != 2) return 0;
+    if (sizeof(uint16_t) != 2) return 0;
+    if (sizeof(int32_t) != 4) return 0;
+    if (sizeof(uint32_t) != 4) return 0;
     if (sizeof(float) != 4) return 0;
     if (sizeof(double) != 8) return 0;
     return 1;
@@ -1205,33 +1206,33 @@ static int ply_type_check(void) {
  * Output handlers
  * ---------------------------------------------------------------------- */
 static int oascii_int8(p_ply ply, double value) {
-    if (value > CHAR_MAX || value < CHAR_MIN) return 0;
-    return fprintf(ply->fp, "%d ", (char) value) > 0;
+    if (value > INT8_MAX || value < INT8_MIN) return 0;
+    return fprintf(ply->fp, "%d ", (int8_t) value) > 0;
 }
 
 static int oascii_uint8(p_ply ply, double value) {
-    if (value > UCHAR_MAX || value < 0) return 0;
-    return fprintf(ply->fp, "%d ", (unsigned char) value) > 0;
+    if (value > UINT8_MAX || value < 0) return 0;
+    return fprintf(ply->fp, "%d ", (uint8_t) value) > 0;
 }
 
 static int oascii_int16(p_ply ply, double value) {
-    if (value > SHRT_MAX || value < SHRT_MIN) return 0;
-    return fprintf(ply->fp, "%d ", (short) value) > 0;
+    if (value > INT16_MAX || value < INT16_MIN) return 0;
+    return fprintf(ply->fp, "%d ", (int16_t) value) > 0;
 }
 
 static int oascii_uint16(p_ply ply, double value) {
-    if (value > USHRT_MAX || value < 0) return 0;
-    return fprintf(ply->fp, "%d ", (unsigned short) value) > 0;
+    if (value > UINT16_MAX || value < 0) return 0;
+    return fprintf(ply->fp, "%d ", (uint16_t) value) > 0;
 }
 
-static int oascii_int32(p_ply ply, double value) {
-    if (value > LONG_MAX || value < LONG_MIN) return 0;
-    return fprintf(ply->fp, "%d ", (int) value) > 0;
+static int oascii_int32_t(p_ply ply, double value) {
+    if (value > INT32_MAX || value < INT32_MIN) return 0;
+    return fprintf(ply->fp, "%d ", (int32_t) value) > 0;
 }
 
-static int oascii_uint32(p_ply ply, double value) {
-    if (value > ULONG_MAX || value < 0) return 0;
-    return fprintf(ply->fp, "%d ", (unsigned int) value) > 0;
+static int oascii_uint32_t(p_ply ply, double value) {
+    if (value > UINT32_MAX || value < 0) return 0;
+    return fprintf(ply->fp, "%d ", (uint32_t) value) > 0;
 }
 
 static int oascii_float32(p_ply ply, double value) {
@@ -1245,39 +1246,39 @@ static int oascii_float64(p_ply ply, double value) {
 }
 
 static int obinary_int8(p_ply ply, double value) {
-    char int8 = (char) value;
-    if (value > CHAR_MAX || value < CHAR_MIN) return 0;
-    return ply->odriver->ochunk(ply, &int8, sizeof(int8));
+    int8_t i8 = (int8_t) value;
+    if (value > INT8_MAX || value < INT8_MIN) return 0;
+    return ply->odriver->ochunk(ply, &i8, sizeof(i8));
 }
 
 static int obinary_uint8(p_ply ply, double value) {
-    unsigned char uint8 = (unsigned char) value;
-    if (value > UCHAR_MAX || value < 0) return 0;
-    return ply->odriver->ochunk(ply, &uint8, sizeof(uint8)); 
+    uint8_t ui8 = (uint8_t) value;
+    if (value > UINT8_MAX || value < 0) return 0;
+    return ply->odriver->ochunk(ply, &ui8, sizeof(ui8)); 
 }
 
 static int obinary_int16(p_ply ply, double value) {
-    short int16 = (short) value;
-    if (value > SHRT_MAX || value < SHRT_MIN) return 0;
-    return ply->odriver->ochunk(ply, &int16, sizeof(int16));
+    int16_t i16 = (int16_t) value;
+    if (value > INT16_MAX || value < INT16_MIN) return 0;
+    return ply->odriver->ochunk(ply, &i16, sizeof(i16));
 }
 
 static int obinary_uint16(p_ply ply, double value) {
-    unsigned short uint16 = (unsigned short) value;
-    if (value > USHRT_MAX || value < 0) return 0;
-    return ply->odriver->ochunk(ply, &uint16, sizeof(uint16)); 
+    uint16_t ui16 = (uint16_t) value;
+    if (value > UINT16_MAX || value < 0) return 0;
+    return ply->odriver->ochunk(ply, &ui16, sizeof(ui16)); 
 }
 
-static int obinary_int32(p_ply ply, double value) {
-    long int32 = (long) value;
-    if (value > LONG_MAX || value < LONG_MIN) return 0;
-    return ply->odriver->ochunk(ply, &int32, sizeof(int32));
+static int obinary_int32_t(p_ply ply, double value) {
+    int32_t i32 = (int32_t) value;
+    if (value > INT32_MAX || value < INT32_MIN) return 0;
+    return ply->odriver->ochunk(ply, &i32, sizeof(i32));
 }
 
-static int obinary_uint32(p_ply ply, double value) {
-    unsigned long uint32 = (unsigned long) value;
-    if (value > ULONG_MAX || value < 0) return 0;
-    return ply->odriver->ochunk(ply, &uint32, sizeof(uint32));
+static int obinary_uint32_t(p_ply ply, double value) {
+    uint32_t ui32 = (uint32_t) value;
+    if (value > UINT32_MAX || value < 0) return 0;
+    return ply->odriver->ochunk(ply, &ui32, sizeof(ui32));
 }
 
 static int obinary_float32(p_ply ply, double value) {
@@ -1297,7 +1298,7 @@ static int iascii_int8(p_ply ply, double *value) {
     char *end;
     if (!ply_read_word(ply)) return 0;
     *value = strtol(BWORD(ply), &end, 10);
-    if (*end || *value > CHAR_MAX || *value < CHAR_MIN) return 0;
+    if (*end || *value > INT8_MAX || *value < INT8_MIN) return 0;
     return 1;
 }
 
@@ -1305,7 +1306,7 @@ static int iascii_uint8(p_ply ply, double *value) {
     char *end;
     if (!ply_read_word(ply)) return 0;
     *value = strtol(BWORD(ply), &end, 10);
-    if (*end || *value > UCHAR_MAX || *value < 0) return 0;
+    if (*end || *value > UINT8_MAX || *value < 0) return 0;
     return 1;
 }
 
@@ -1313,7 +1314,7 @@ static int iascii_int16(p_ply ply, double *value) {
     char *end;
     if (!ply_read_word(ply)) return 0;
     *value = strtol(BWORD(ply), &end, 10);
-    if (*end || *value > SHRT_MAX || *value < SHRT_MIN) return 0;
+    if (*end || *value > INT16_MAX || *value < INT16_MIN) return 0;
     return 1;
 }
 
@@ -1321,19 +1322,19 @@ static int iascii_uint16(p_ply ply, double *value) {
     char *end;
     if (!ply_read_word(ply)) return 0;
     *value = strtol(BWORD(ply), &end, 10);
-    if (*end || *value > USHRT_MAX || *value < 0) return 0;
+    if (*end || *value > UINT16_MAX || *value < 0) return 0;
     return 1;
 }
 
-static int iascii_int32(p_ply ply, double *value) {
+static int iascii_int32_t(p_ply ply, double *value) {
     char *end;
     if (!ply_read_word(ply)) return 0;
     *value = strtol(BWORD(ply), &end, 10);
-    if (*end || *value > LONG_MAX || *value < LONG_MIN) return 0;
+    if (*end || *value > INT32_MAX || *value < INT32_MIN) return 0;
     return 1;
 }
 
-static int iascii_uint32(p_ply ply, double *value) {
+static int iascii_uint32_t(p_ply ply, double *value) {
     char *end;
     if (!ply_read_word(ply)) return 0;
     *value = strtol(BWORD(ply), &end, 10);
@@ -1358,44 +1359,44 @@ static int iascii_float64(p_ply ply, double *value) {
 }
 
 static int ibinary_int8(p_ply ply, double *value) {
-    char int8;
-    if (!ply->idriver->ichunk(ply, &int8, 1)) return 0;
-    *value = int8;
+    int8_t i8;
+    if (!ply->idriver->ichunk(ply, &i8, 1)) return 0;
+    *value = i8;
     return 1;
 }
 
 static int ibinary_uint8(p_ply ply, double *value) {
-    unsigned char uint8;
-    if (!ply->idriver->ichunk(ply, &uint8, 1)) return 0;
-    *value = uint8;
+    uint8_t ui8;
+    if (!ply->idriver->ichunk(ply, &ui8, 1)) return 0;
+    *value = ui8;
     return 1;
 }
 
 static int ibinary_int16(p_ply ply, double *value) {
-    short int16;
-    if (!ply->idriver->ichunk(ply, &int16, sizeof(int16))) return 0;
-    *value = int16;
+    int16_t i16;
+    if (!ply->idriver->ichunk(ply, &i16, sizeof(i16))) return 0;
+    *value = i16;
     return 1;
 }
 
 static int ibinary_uint16(p_ply ply, double *value) {
-    unsigned short uint16;
-    if (!ply->idriver->ichunk(ply, &uint16, sizeof(uint16))) return 0;
-    *value = uint16;
+    uint16_t ui16;
+    if (!ply->idriver->ichunk(ply, &ui16, sizeof(ui16))) return 0;
+    *value = ui16;
     return 1;
 }
 
-static int ibinary_int32(p_ply ply, double *value) {
-    long int32;
-    if (!ply->idriver->ichunk(ply, &int32, sizeof(int32))) return 0;
-    *value = int32;
+static int ibinary_int32_t(p_ply ply, double *value) {
+    int32_t i32;
+    if (!ply->idriver->ichunk(ply, &i32, sizeof(i32))) return 0;
+    *value = i32;
     return 1;
 }
 
-static int ibinary_uint32(p_ply ply, double *value) {
-    unsigned long uint32;
-    if (!ply->idriver->ichunk(ply, &uint32, sizeof(uint32))) return 0;
-    *value = uint32;
+static int ibinary_uint32_t(p_ply ply, double *value) {
+    uint32_t ui32;
+    if (!ply->idriver->ichunk(ply, &ui32, sizeof(ui32))) return 0;
+    *value = ui32;
     return 1;
 }
 
@@ -1416,9 +1417,9 @@ static int ibinary_float64(p_ply ply, double *value) {
  * ---------------------------------------------------------------------- */
 static t_ply_idriver ply_idriver_ascii = {
     {   iascii_int8, iascii_uint8, iascii_int16, iascii_uint16,
-        iascii_int32, iascii_uint32, iascii_float32, iascii_float64,
+        iascii_int32_t, iascii_uint32_t, iascii_float32, iascii_float64,
         iascii_int8, iascii_uint8, iascii_int16, iascii_uint16,
-        iascii_int32, iascii_uint32, iascii_float32, iascii_float64
+        iascii_int32_t, iascii_uint32_t, iascii_float32, iascii_float64
     }, /* order matches e_ply_type enum */
     NULL,
     "ascii input"
@@ -1426,9 +1427,9 @@ static t_ply_idriver ply_idriver_ascii = {
 
 static t_ply_idriver ply_idriver_binary = {
     {   ibinary_int8, ibinary_uint8, ibinary_int16, ibinary_uint16,
-        ibinary_int32, ibinary_uint32, ibinary_float32, ibinary_float64,
+        ibinary_int32_t, ibinary_uint32_t, ibinary_float32, ibinary_float64,
         ibinary_int8, ibinary_uint8, ibinary_int16, ibinary_uint16,
-        ibinary_int32, ibinary_uint32, ibinary_float32, ibinary_float64
+        ibinary_int32_t, ibinary_uint32_t, ibinary_float32, ibinary_float64
     }, /* order matches e_ply_type enum */
     ply_read_chunk,
     "binary input"
@@ -1436,9 +1437,9 @@ static t_ply_idriver ply_idriver_binary = {
 
 static t_ply_idriver ply_idriver_binary_reverse = {
     {   ibinary_int8, ibinary_uint8, ibinary_int16, ibinary_uint16,
-        ibinary_int32, ibinary_uint32, ibinary_float32, ibinary_float64,
+        ibinary_int32_t, ibinary_uint32_t, ibinary_float32, ibinary_float64,
         ibinary_int8, ibinary_uint8, ibinary_int16, ibinary_uint16,
-        ibinary_int32, ibinary_uint32, ibinary_float32, ibinary_float64
+        ibinary_int32_t, ibinary_uint32_t, ibinary_float32, ibinary_float64
     }, /* order matches e_ply_type enum */
     ply_read_chunk_reverse,
     "reverse binary input"
@@ -1446,9 +1447,9 @@ static t_ply_idriver ply_idriver_binary_reverse = {
 
 static t_ply_odriver ply_odriver_ascii = {
     {   oascii_int8, oascii_uint8, oascii_int16, oascii_uint16,
-        oascii_int32, oascii_uint32, oascii_float32, oascii_float64,
+        oascii_int32_t, oascii_uint32_t, oascii_float32, oascii_float64,
         oascii_int8, oascii_uint8, oascii_int16, oascii_uint16,
-        oascii_int32, oascii_uint32, oascii_float32, oascii_float64
+        oascii_int32_t, oascii_uint32_t, oascii_float32, oascii_float64
     }, /* order matches e_ply_type enum */
     NULL,
     "ascii output"
@@ -1456,9 +1457,9 @@ static t_ply_odriver ply_odriver_ascii = {
 
 static t_ply_odriver ply_odriver_binary = {
     {   obinary_int8, obinary_uint8, obinary_int16, obinary_uint16,
-        obinary_int32, obinary_uint32, obinary_float32, obinary_float64,
+        obinary_int32_t, obinary_uint32_t, obinary_float32, obinary_float64,
         obinary_int8, obinary_uint8, obinary_int16, obinary_uint16,
-        obinary_int32, obinary_uint32, obinary_float32, obinary_float64
+        obinary_int32_t, obinary_uint32_t, obinary_float32, obinary_float64
     }, /* order matches e_ply_type enum */
     ply_write_chunk,
     "binary output"
@@ -1466,9 +1467,9 @@ static t_ply_odriver ply_odriver_binary = {
 
 static t_ply_odriver ply_odriver_binary_reverse = {
     {   obinary_int8, obinary_uint8, obinary_int16, obinary_uint16,
-        obinary_int32, obinary_uint32, obinary_float32, obinary_float64,
+        obinary_int32_t, obinary_uint32_t, obinary_float32, obinary_float64,
         obinary_int8, obinary_uint8, obinary_int16, obinary_uint16,
-        obinary_int32, obinary_uint32, obinary_float32, obinary_float64
+        obinary_int32_t, obinary_uint32_t, obinary_float32, obinary_float64
     }, /* order matches e_ply_type enum */
     ply_write_chunk_reverse,
     "reverse binary output"

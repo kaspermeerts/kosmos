@@ -13,6 +13,8 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
+
 #define RPLY_VERSION   "RPly 1.01"
 #define RPLY_COPYRIGHT "Copyright (C) 2003-2005 Diego Nehab"
 #define RPLY_AUTHORS   "Diego Nehab"
@@ -37,7 +39,7 @@ typedef enum e_ply_storage_mode_ {
 /* ply data type */
 typedef enum e_ply_type {
     PLY_INT8, PLY_UINT8, PLY_INT16, PLY_UINT16, 
-    PLY_INT32, PLY_UIN32, PLY_FLOAT32, PLY_FLOAT64,
+    PLY_int32_t, PLY_UIN32, PLY_FLOAT32, PLY_FLOAT64,
     PLY_CHAR, PLY_UCHAR, PLY_SHORT, PLY_USHORT,
     PLY_INT, PLY_UINT, PLY_FLOAT, PLY_DOUBLE,
     PLY_LIST    /* has to be the last in enum */
@@ -90,9 +92,9 @@ typedef int (*p_ply_read_cb)(p_ply_argument argument);
  * Returns 0 if no element or no property in element, returns the
  * number of element instances otherwise. 
  * ---------------------------------------------------------------------- */
-long ply_set_read_cb(p_ply ply, const char *element_name, 
+int32_t ply_set_read_cb(p_ply ply, const char *element_name, 
         const char *property_name, p_ply_read_cb read_cb, 
-        void *pdata, long idata);
+        void *pdata, int32_t idata);
 
 /* ----------------------------------------------------------------------
  * Returns information about the element originating a callback
@@ -105,7 +107,7 @@ long ply_set_read_cb(p_ply ply, const char *element_name,
  * Returns 1 if successfull, 0 otherwise
  * ---------------------------------------------------------------------- */
 int ply_get_argument_element(p_ply_argument argument, 
-        p_ply_element *element, long *instance_index);
+        p_ply_element *element, int32_t *instance_index);
 
 /* ----------------------------------------------------------------------
  * Returns information about the property originating a callback
@@ -118,7 +120,7 @@ int ply_get_argument_element(p_ply_argument argument,
  * Returns 1 if successfull, 0 otherwise
  * ---------------------------------------------------------------------- */
 int ply_get_argument_property(p_ply_argument argument, 
-        p_ply_property *property, long *length, long *value_index);
+        p_ply_property *property, int32_t *length, int32_t *value_index);
 
 /* ----------------------------------------------------------------------
  * Returns user data associated with callback 
@@ -129,7 +131,7 @@ int ply_get_argument_property(p_ply_argument argument,
  * Returns 1 if successfull, 0 otherwise
  * ---------------------------------------------------------------------- */
 int ply_get_argument_user_data(p_ply_argument argument, void **pdata, 
-        long *idata);
+        int32_t *idata);
 
 /* ----------------------------------------------------------------------
  * Returns the value associated with a callback
@@ -193,7 +195,7 @@ const char *ply_get_next_obj_info(p_ply ply, const char *last);
  * Returns 1 if successfull or 0 otherwise
  * ---------------------------------------------------------------------- */
 int ply_get_element_info(p_ply_element element, const char** name,
-        long *ninstances);
+        int32_t *ninstances);
 
 /* ----------------------------------------------------------------------
  * Iterates over all properties by returning the next property.
@@ -243,7 +245,7 @@ p_ply ply_create(const char *name, e_ply_storage_mode storage_mode,
  *
  * Returns 1 if successfull, 0 otherwise
  * ---------------------------------------------------------------------- */
-int ply_add_element(p_ply ply, const char *name, long ninstances);
+int ply_add_element(p_ply ply, const char *name, int32_t ninstances);
 
 /* ----------------------------------------------------------------------
  * Adds a new property to the last element added by ply_add_element
