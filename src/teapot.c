@@ -32,7 +32,7 @@ GLfloat material_diffuse[3] = {1, 0.829, 0.829};
 GLfloat material_specular[3] = {0.296648, 0.296648, 0.296648};
 GLfloat shininess = 0.088*128;
 
-float theta = 0.0;
+double t = 0.0;
 
 int init_allegro(Camera *cam)
 {
@@ -83,6 +83,9 @@ int main(int argc, char **argv)
 	Vec3 position = {0, 0, 5};
 	Vec3 up =  {0, 1, 0};
 	Vec3 target = {0, 0, 0};
+	Quaternion q0 = quat_normalize((Quaternion) {1, 0, 0, 0});
+	Quaternion q1 = quat_normalize((Quaternion) {-1, 0, -1, 0});
+	Quaternion q;
 	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
 	GLint proj_unif, view_unif;
 	bool wireframe = false;
@@ -204,9 +207,13 @@ int main(int argc, char **argv)
 			}
 		}
 
+		q = quat_slerp(q0, q1, fabs(fmod(t+1, 2) - 1));
+
+		t += 1.0/60/2;
 
 		glmLoadIdentity(modelviewMatrix);
 		cam_view_matrix(&cam, modelviewMatrix); /* view */
+		glmMultQuaternion(modelviewMatrix, q);
 		glmTranslate(modelviewMatrix, target.x, target.y, target.z);
 		glmUniformMatrix(view_unif, modelviewMatrix);
 		

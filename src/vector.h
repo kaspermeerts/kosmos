@@ -15,5 +15,6 @@ double vec3_length2(Vec3 a);
 double vec3_length(Vec3 a);
 Vec3 vec3_normalize(Vec3 a);
 Vec3 vec3_cross(Vec3 a, Vec3 b);
+Vec3 vec3_lerp(Vec3 a, Vec3 b, double t);
 
 #endif

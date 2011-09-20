@@ -58,4 +58,13 @@ Vec3 vec3_cross(Vec3 a, Vec3 b)
 	return c;
 }
 
+Vec3 vec3_lerp(Vec3 a, Vec3 b, double t)
+{
+	Vec3 c;
+	/* c = a*t + b*(1-t) */
+	a = vec3_scale(a, t);
+	b = vec3_scale(b, 1-t);
+	c = vec3_add(a, b);
 
+	return c;
+}

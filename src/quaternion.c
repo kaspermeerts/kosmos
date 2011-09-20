@@ -6,12 +6,39 @@
 /* Square of the norm of the quaternion */
 double quat_length2(Quaternion p)
 {
-	return p.w*p.w + p.x*p.x + p.y*p.y + p.z*p.z;
+	return quat_dot(p, p);
 }
 
 double quat_length(Quaternion p)
 {
 	return sqrt(quat_length2(p));
+}
+
+double quat_dot(Quaternion a, Quaternion b)
+{
+	return a.w*b.w + a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+Quaternion quat_add(Quaternion a, Quaternion b)
+{
+	Quaternion c;
+	c.w = a.w + b.w;
+	c.x = a.x + b.x;
+	c.y = a.y + b.y;
+	c.z = a.z + b.z;
+
+	return c;
+}
+
+Quaternion quat_sub(Quaternion a, Quaternion b)
+{
+	Quaternion c;
+	c.w = a.w - b.w;
+	c.x = a.x - b.x;
+	c.y = a.y - b.y;
+	c.z = a.z - b.z;
+
+	return c;
 }
 
 Quaternion quat_scale(Quaternion p, double scale)
@@ -171,17 +198,43 @@ void mat3_from_quat(Mat3 m, Quaternion p)
 
 Vec3 quat_transform(Quaternion q, Vec3 v)
 {
-	Vec3 v2;
-	Quaternion p, p2, q2;
+	Mat3 m;
 
-	p = (Quaternion) {0, v.x, v.y, v.z};
-	p2 = quat_multiply(q, p);
-	q2 = quat_conjugate(q);
-	p2 = quat_multiply(p2, q2);
+	mat3_from_quat(m, q);
+	return mat3_transform(m, v);
+}
 
-	v2.x = p2.x;
-	v2.y = p2.y;
-	v2.z = p2.z;
+Quaternion quat_nlerp(Quaternion a, Quaternion b, double t)
+{
+	Quaternion c;
 
-	return v2;
+	c = quat_add(quat_scale(a, 1-t), quat_scale(b, t));
+
+	return quat_normalize(c);
+}
+
+Quaternion quat_slerp(Quaternion a, Quaternion b, double t)
+{
+	double cosa, angle, interangle;
+	Quaternion q0, q1;
+
+	cosa = quat_dot(a, b);
+	if (cosa < 0)
+	{
+		a = quat_scale(a, -1);
+		cosa = -cosa;
+	}
+	if (cosa > 1-1e-6)
+		return quat_nlerp(a, b, t);
+
+	angle = acos(cosa);
+	interangle = angle*t;
+
+	q0 = a;
+	/* q1 = b - (a.b) a */
+	q1 = quat_normalize(quat_add(b, quat_scale(a,-cosa)));
+
+	/* return q0 * cos(interangle) + q1 * sin(interangle) */
+	return quat_add(quat_scale(q0, cos(interangle)),
+	                quat_scale(q1, sin(interangle)));
 }
