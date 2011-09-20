@@ -16,9 +16,17 @@ enum vertex_props {
 	PROP_Z 
 };
 
+struct face_types {
+	bool all_triangles;
+	bool all_quads;
+};
+
 extern char *strdup(const char *s); /* FIXME */
 
 static bool mesh_load_ply(Mesh *mesh, const char *filename);
+static bool mesh_ply_first_pass(Mesh *mesh, p_ply ply);
+static bool mesh_ply_second_pass(Mesh *mesh, p_ply ply);
+static int tesselate_cb(p_ply_argument argument);
 static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
 static void generate_normals(Mesh *mesh);
@@ -51,65 +59,109 @@ Mesh *mesh_import(const char *filename)
 
 static bool mesh_load_ply(Mesh *mesh, const char *filename)
 {
-	p_ply ply = NULL;
-	p_ply_element element = NULL;
-	bool succes = false;
+	p_ply ply;
 
 	if ((ply = ply_open(filename, NULL)) == NULL)
-		goto out;
+		goto errorout;
 	if (ply_read_header(ply) == 0)
-		goto out;
+		goto errorout;
 
-	while((element = ply_get_next_element(ply, element)) != NULL)
+	if (!mesh_ply_first_pass(mesh, ply))
+		goto errorout;
+
+	ply_close(ply);
+
+	if ((ply = ply_open(filename, NULL)) == NULL)
+		goto errorout;
+	if (ply_read_header(ply) == 0)
+		goto errorout;
+
+	if(!mesh_ply_second_pass(mesh, ply))
+		goto errorout;
+
+	ply_close(ply);
+	
+	return true;
+errorout:
+	if (ply != NULL)
+		ply_close(ply);
+	return false;
+}
+
+static bool mesh_ply_first_pass(Mesh *mesh, p_ply ply)
+{
+	struct face_types types;
+	long num_faces;
+
+	/* First pass */
+	types.all_triangles = true;
+	types.all_quads = true;
+
+	num_faces = ply_set_read_cb(ply, "face", "vertex_indices", tesselate_cb, &types, 0);
+
+	if (ply_read(ply) != 1)
+		return false;
+	if (types.all_triangles)
 	{
-		const char *name;
-		long ninstances;
-		ply_get_element_info(element, &name, &ninstances);
-
-		if (strcmp(name, "vertex") == 0)
-		{
-			if (ninstances <= 0)
-			{
-				log_err("Invalid number of vertices: %ld\n", ninstances);
-				goto out;
-			}
-			mesh->num_vertices = ninstances;
-			mesh->vertex = calloc((size_t) ninstances, sizeof(Vertex));
-		} else if (strcmp(name, "face") == 0)
-		{
-			if (ninstances <= 0)
-			{
-				log_err("Invalid number of faces: %ld\n", ninstances);
-				goto out;
-			}
-			mesh->num_indices = ninstances*3;
-			mesh->index = calloc((size_t) ninstances*3, sizeof(GLuint));
-		} else
-		{
-			log_err("Unknown element: %s\n", name);
-			goto out;
-		}
+		mesh->type = GL_TRIANGLES;
+		mesh->num_indices = num_faces * 3;
+	} else if (types.all_quads)
+	{
+		mesh->type = GL_QUADS;
+		mesh->num_indices = num_faces * 4;
+	} else
+	{
+		log_err("Inconsistent number of vertices per face\n");
+		return false;
 	}
 
+	mesh->index = calloc(sizeof(GLuint), mesh->num_indices);
+
+	return true;
+}
+
+static bool mesh_ply_second_pass(Mesh *mesh, p_ply ply)
+{
+	long num_vertices;
+
+	num_vertices = 
 	ply_set_read_cb(ply, "vertex", "x", vertex_cb, mesh, (long) PROP_X);
 	ply_set_read_cb(ply, "vertex", "y", vertex_cb, mesh, (long) PROP_Y);
 	ply_set_read_cb(ply, "vertex", "z", vertex_cb, mesh, (long) PROP_Z);
 	ply_set_read_cb(ply, "face", "vertex_indices", face_cb, mesh, 0);
 
-	if (ply_read(ply) == 1)
-		succes = true;
+	mesh->num_vertices = num_vertices;
+	mesh->vertex = calloc(sizeof(Vertex), mesh->num_vertices);
 
-out:
-	if (ply != NULL)
-		ply_close(ply);
-	return succes;
+	if (ply_read(ply) != 1)
+		return false;
+	return true;
+}
+
+static int tesselate_cb(p_ply_argument argument)
+{
+	struct face_types *types;
+	void *pdata;
+	int len;
+
+	ply_get_argument_user_data(argument, &pdata, NULL);
+	ply_get_argument_property(argument, NULL, &len, NULL);
+
+	types = (struct face_types *)pdata;
+
+	if (len != 3)
+		types->all_triangles = false;
+	if (len != 4)
+		types->all_quads = false;
+
+	return 1;
 }
 
 static int vertex_cb(p_ply_argument argument)
 {
 	Mesh *mesh;
 	void *pdata;
-	long idata, index;
+	int idata, index;
 	double data;
 
 	ply_get_argument_user_data(argument, &pdata, &idata);
@@ -141,14 +193,19 @@ static int face_cb(p_ply_argument argument)
 {
 	Mesh *mesh;
 	void *pdata;
-	long index, len, value_index;
+	int index, len, value_index, nvert;
 	
 	ply_get_argument_user_data(argument, &pdata, NULL);
 	mesh = (Mesh *)pdata;
+	if (mesh->type == GL_TRIANGLES)
+		nvert = 3;
+	else if (mesh->type == GL_QUADS)
+		nvert = 4;
+
 	ply_get_argument_element(argument, NULL, &index);
 	ply_get_argument_property(argument, NULL, &len, &value_index);
 	
-	if (len != 3)
+	if (len != nvert)
 	{
 		/* TODO: Tesselate? */
 		log_err("Malformed face\n");
@@ -158,7 +215,7 @@ static int face_cb(p_ply_argument argument)
 	if (value_index == -1)
 		return 1;
 
-	mesh->index[3*index + value_index] = ply_get_argument_value(argument);
+	mesh->index[nvert*index + value_index] = ply_get_argument_value(argument);
 
 	return 1;
 }

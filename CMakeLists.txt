@@ -3,7 +3,7 @@ project(kosmos)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 add_definitions(-Wall -Wextra -Wstrict-prototypes -Wmissing-prototypes
--Wshadow -pedantic -std=c99 -g -O0 -fstrict-aliasing -Wstrict-aliasing)
+-Wshadow -pedantic -std=c99 -g -O3 -fstrict-aliasing -Wstrict-aliasing)
 add_definitions(-DROOT_PATH=${CMAKE_SOURCE_DIR})
 
 include_directories(external/ralloc)

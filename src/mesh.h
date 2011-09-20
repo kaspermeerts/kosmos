@@ -28,6 +28,7 @@ typedef struct Mesh {
 	TexCoord *texcoord;
 	GLuint texcoord_vbo;
 #endif
+	GLenum type; /* Triangles or Quads */
 	int num_indices;
 	GLuint *index;
 	GLuint ibo;

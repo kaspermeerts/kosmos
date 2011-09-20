@@ -84,7 +84,7 @@ int main(int argc, char **argv)
 	Vec3 up =  {0, 1, 0};
 	Vec3 target = {0, 0, 0};
 	Quaternion q0 = quat_normalize((Quaternion) {1, 0, 0, 0});
-	Quaternion q1 = quat_normalize((Quaternion) {-1, 0, -1, 0});
+	Quaternion q1 = quat_normalize((Quaternion) {0, 0, -1, 0});
 	Quaternion q;
 	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
 	GLint proj_unif, view_unif;
@@ -213,13 +213,13 @@ int main(int argc, char **argv)
 
 		glmLoadIdentity(modelviewMatrix);
 		cam_view_matrix(&cam, modelviewMatrix); /* view */
-		glmMultQuaternion(modelviewMatrix, q);
+		//glmMultQuaternion(modelviewMatrix, q);
 		glmTranslate(modelviewMatrix, target.x, target.y, target.z);
 		glmUniformMatrix(view_unif, modelviewMatrix);
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1, 
+		glDrawRangeElements(mesh->type, 0, mesh->num_vertices - 1, 
 			mesh->num_indices, GL_UNSIGNED_INT, NULL);
 
 		al_flip_display();
