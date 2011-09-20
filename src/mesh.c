@@ -61,7 +61,7 @@ static bool mesh_load_ply(Mesh *mesh, const char *filename)
 {
 	p_ply ply;
 
-	if ((ply = ply_open(filename, NULL)) == NULL)
+	if ((ply = ply_open(filename, NULL, 0, NULL)) == NULL)
 		goto errorout;
 	if (ply_read_header(ply) == 0)
 		goto errorout;
@@ -71,7 +71,7 @@ static bool mesh_load_ply(Mesh *mesh, const char *filename)
 
 	ply_close(ply);
 
-	if ((ply = ply_open(filename, NULL)) == NULL)
+	if ((ply = ply_open(filename, NULL, 0, NULL)) == NULL)
 		goto errorout;
 	if (ply_read_header(ply) == 0)
 		goto errorout;
@@ -142,7 +142,7 @@ static int tesselate_cb(p_ply_argument argument)
 {
 	struct face_types *types;
 	void *pdata;
-	int len;
+	long len;
 
 	ply_get_argument_user_data(argument, &pdata, NULL);
 	ply_get_argument_property(argument, NULL, &len, NULL);
@@ -161,7 +161,7 @@ static int vertex_cb(p_ply_argument argument)
 {
 	Mesh *mesh;
 	void *pdata;
-	int idata, index;
+	long idata, index;
 	double data;
 
 	ply_get_argument_user_data(argument, &pdata, &idata);
@@ -193,7 +193,7 @@ static int face_cb(p_ply_argument argument)
 {
 	Mesh *mesh;
 	void *pdata;
-	int index, len, value_index, nvert;
+	long index, len, value_index, nvert;
 	
 	ply_get_argument_user_data(argument, &pdata, NULL);
 	mesh = (Mesh *)pdata;
@@ -201,6 +201,8 @@ static int face_cb(p_ply_argument argument)
 		nvert = 3;
 	else if (mesh->type == GL_QUADS)
 		nvert = 4;
+	else
+		nvert = 0; /* Shut up GCC */
 
 	ply_get_argument_element(argument, NULL, &index);
 	ply_get_argument_property(argument, NULL, &len, &value_index);
