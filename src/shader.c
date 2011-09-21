@@ -60,6 +60,26 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 	log_dbg("Loaded shader\n");
 	show_info_log(shader->program, glGetProgramiv, glGetProgramInfoLog);
 
+	shader->location[SHADER_ATT_POSITION] =
+			glGetAttribLocation(shader->program, "in_position");
+	shader->location[SHADER_ATT_NORMAL] =
+			glGetAttribLocation(shader->program, "in_normal");
+	shader->location[SHADER_UNI_MV_MATRIX] =
+			glGetUniformLocation(shader->program, "modelview_matrix");
+	shader->location[SHADER_UNI_P_MATRIX] =
+			glGetUniformLocation(shader->program, "projection_matrix");
+	shader->location[SHADER_UNI_LIGHT_DIR] =
+			glGetUniformLocation(shader->program, "light_dir");
+	shader->location[SHADER_UNI_LIGHT_AMBIENT] =
+			glGetUniformLocation(shader->program, "light_ambient");
+	shader->location[SHADER_UNI_LIGHT_DIFFUSE] =
+			glGetUniformLocation(shader->program, "light_diffuse");
+	shader->location[SHADER_UNI_LIGHT_SPECULAR] =
+			glGetUniformLocation(shader->program, "light_specular");
+	shader->location[SHADER_UNI_LIGHT_SHININESS] =
+			glGetUniformLocation(shader->program, "shininess");
+
+
 	return shader;
 
 errorout:

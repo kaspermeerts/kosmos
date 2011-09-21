@@ -13,6 +13,7 @@
 #include "glm.h"
 #include "camera.h"
 #include "mesh.h"
+#include "render.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846L
@@ -23,13 +24,10 @@ int init_allegro(Camera *cam);
 
 ALLEGRO_DISPLAY *dpy;
 
-Matrix *projectionMatrix = NULL;
-Matrix *modelviewMatrix = NULL;
-
 GLfloat light_dir[3] = {4, 0, 5};
-GLfloat material_ambient[3] = {0.25, 0.20725, 0.20725};
-GLfloat material_diffuse[3] = {1, 0.829, 0.829};
-GLfloat material_specular[3] = {0.296648, 0.296648, 0.296648};
+GLfloat light_ambient[3] = {0.25, 0.20725, 0.20725};
+GLfloat light_diffuse[3] = {1, 0.829, 0.829};
+GLfloat light_specular[3] = {0.296648, 0.296648, 0.296648};
 GLfloat shininess = 0.088*128;
 
 double t = 0.0;
@@ -43,7 +41,8 @@ int init_allegro(Camera *cam)
 	if (!al_install_keyboard())
 		return 1;
 	
-	al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_OPENGL | ALLEGRO_OPENGL_FORWARD_COMPATIBLE);
+	al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_RESIZABLE |
+			ALLEGRO_OPENGL | ALLEGRO_OPENGL_FORWARD_COMPATIBLE);
 	
 	al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
 
@@ -77,6 +76,7 @@ static void calcfps()
 
 int main(int argc, char **argv)
 {
+	Entity ent;
 	Shader *shader;
 	const char *filename;
 	Camera cam;
@@ -87,7 +87,6 @@ int main(int argc, char **argv)
 	Quaternion q1 = quat_normalize((Quaternion) {0, 0, -1, 0});
 	Quaternion q;
 	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
-	GLint proj_unif, view_unif;
 	bool wireframe = false;
 	Mesh *mesh;
 	if (argc < 2)
@@ -116,39 +115,36 @@ int main(int argc, char **argv)
 
 	glewInit();
 
-	shader = shader_create(STRINGIFY(ROOT_PATH) "/src/teapot.v.glsl", 
-	                       STRINGIFY(ROOT_PATH) "/src/teapot.f.glsl");
+	shader = shader_create(STRINGIFY(ROOT_PATH) "/data/simple.v.glsl", 
+	                       STRINGIFY(ROOT_PATH) "/data/simple.f.glsl");
 	if (shader == NULL)
 		return 1;
 	glUseProgram(shader->program);
 
-	projectionMatrix = glmNewMatrixStack();
-	modelviewMatrix = glmNewMatrixStack();
+	projection_matrix = glmNewMatrixStack();
+	modelview_matrix = glmNewMatrixStack();
 
 	glClearColor(100/255., 149/255., 237/255., 1.0);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-	/* Make buffers */
+	memcpy(g_light.dir, light_dir, sizeof(light_dir));
+	memcpy(g_light.ambient, light_ambient, sizeof(light_ambient));
+	memcpy(g_light.diffuse, light_diffuse, sizeof(light_diffuse));
+	memcpy(g_light.specular, light_specular, sizeof(light_specular));
+	g_light.shininess = shininess;
 
+	lights_upload_to_gpu(shader);
 
-	mesh_upload_to_gpu(mesh, shader->program);
+	ent.data.common.position = target;
+	ent.data.common.orientation = q0;
+	ent.type = TYPE_MESH;
+	ent.data.mesh.mesh = mesh;
+	entity_upload_to_gpu(shader, &ent);
 
 	/* Transformation matrices */
-	cam_projection_matrix(&cam, projectionMatrix);
-	proj_unif = glGetUniformLocation(shader->program, "projection_matrix");
-	glmUniformMatrix(proj_unif, projectionMatrix);
-
-	view_unif = glGetUniformLocation(shader->program, "modelview_matrix");
-
-	/* Lighting */
-	glUniform3fv(glGetUniformLocation(shader->program, "light_dir"), 1, light_dir);
-
-	glUniform3fv(glGetUniformLocation(shader->program, "mat_ambient"), 1, material_ambient);
-	glUniform3fv(glGetUniformLocation(shader->program, "mat_diffuse"), 1, material_diffuse);
-	glUniform3fv(glGetUniformLocation(shader->program, "mat_specular"), 1, material_specular);
-	glUniform1f(glGetUniformLocation(shader->program, "shininess"), shininess);
+	cam_projection_matrix(&cam, projection_matrix);
 
 	/* Start rendering */
 	while(1)
@@ -202,6 +198,13 @@ int main(int argc, char **argv)
 					cam_lookat(&cam, cam.position, cam.target, upv);
 				}
 				break;
+			case ALLEGRO_EVENT_DISPLAY_RESIZE:
+				cam.width = ev.display.width;
+				cam.height = ev.display.height;
+				glmLoadIdentity(projection_matrix);
+				cam_projection_matrix(&cam, projection_matrix);
+				glViewport(cam.left, cam.bottom, cam.width, cam.height);
+				break;
 			default:
 				break;
 			}
@@ -211,16 +214,12 @@ int main(int argc, char **argv)
 
 		t += 1.0/60/2;
 
-		glmLoadIdentity(modelviewMatrix);
-		cam_view_matrix(&cam, modelviewMatrix); /* view */
-		//glmMultQuaternion(modelviewMatrix, q);
-		glmTranslate(modelviewMatrix, target.x, target.y, target.z);
-		glmUniformMatrix(view_unif, modelviewMatrix);
+		glmLoadIdentity(modelview_matrix);
+		cam_view_matrix(&cam, modelview_matrix); /* view */
 		
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		glDrawRangeElements(mesh->type, 0, mesh->num_vertices - 1, 
-			mesh->num_indices, GL_UNSIGNED_INT, NULL);
+		entity_render(shader, &ent);
 
 		al_flip_display();
 		calcfps();
@@ -234,8 +233,8 @@ out:
 	free(mesh);
 
 	shader_delete(shader);
-	glmFreeMatrixStack(projectionMatrix);
-	glmFreeMatrixStack(modelviewMatrix);
+	glmFreeMatrixStack(projection_matrix);
+	glmFreeMatrixStack(modelview_matrix);
 	al_destroy_display(dpy);
 	return 0;
 }

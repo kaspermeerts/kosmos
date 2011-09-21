@@ -14,6 +14,7 @@
 #include "camera.h"
 #include "mesh.h"
 #include "solarsystem.h"
+#include "render.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846L
@@ -131,6 +132,7 @@ static void render(Camera *cam, Mesh *mesh)
 
 int main(int argc, char **argv)
 {
+	Entity ent;
 	const char *filename;
 	Camera cam;
 	Vec3 position = {0, 0, 150e9};
@@ -177,7 +179,8 @@ int main(int argc, char **argv)
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-	mesh_upload_to_gpu(mesh, shader->program);
+	ent.data.mesh.mesh = mesh;
+	entity_upload_to_gpu(shader, &ent);
 
 	/* Transformation matrices */
 	cam_projection_matrix(&cam, projectionMatrix);

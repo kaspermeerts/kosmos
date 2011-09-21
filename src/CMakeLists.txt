@@ -12,7 +12,6 @@ include_directories(${render_includes})
 
 add_library(MyMath STATIC ${mathlib_sources})
 add_library(MyRender STATIC ${render_sources} ${mathlib_sources})
-add_library(External STATIC ${external_sources})
 target_link_libraries(MyMath m)
 target_link_libraries(MyRender ${render_libs} MyMath)
 
@@ -22,5 +21,5 @@ target_link_libraries(teapot MyRender External)
 add_executable(meshinfo meshinfo.c mesh.c log.c)
 target_link_libraries(meshinfo MyMath External)
 
-add_executable(orrery orrery.c solarsystem.c keplerorbit.c log.c)
-target_link_libraries(orrery MyRender External)
+#add_executable(orrery orrery.c solarsystem.c keplerorbit.c log.c)
+#target_link_libraries(orrery MyRender External)

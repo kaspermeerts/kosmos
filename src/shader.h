@@ -8,17 +8,19 @@ typedef struct {
 	GLuint vertex_shader;
 	GLuint fragment_shader;
 
-	GLint attribute_vertex;
-	GLint attribute_normal;
-	GLint uniform_mv_matrix;
-	GLint uniform_p_matrix;
-	GLint uniform_light_dir;
-	GLint uniform_mat_ambient;
-	GLint uniform_mat_diffuse;
-	GLint uniform_mat_specular;
-	GLint uniform_mat_shininess;
+	GLint location[10];
 } Shader;
+
+#define SHADER_ATT_POSITION 0
+#define SHADER_ATT_NORMAL   1
+#define SHADER_UNI_MV_MATRIX 2
+#define SHADER_UNI_P_MATRIX 3
+#define SHADER_UNI_LIGHT_DIR 4
+#define SHADER_UNI_LIGHT_AMBIENT 5
+#define SHADER_UNI_LIGHT_DIFFUSE 6
+#define SHADER_UNI_LIGHT_SPECULAR 7
+#define SHADER_UNI_LIGHT_SHININESS 8
 
 Shader *shader_create(const char *vertex_source, const char *fragment_source);
 void shader_delete(Shader *shader);
-#endif 
+#endif

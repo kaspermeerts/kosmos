@@ -5,6 +5,7 @@
 
 typedef struct Vertex {
 	GLfloat x, y, z;
+	GLfloat nx, ny, nz;
 } Vertex;
 
 typedef Vertex Normal;
@@ -35,6 +36,5 @@ typedef struct Mesh {
 } Mesh;
 
 Mesh *mesh_import(const char *filename);
-void mesh_upload_to_gpu(Mesh *mesh, GLuint program);
 
 #endif
