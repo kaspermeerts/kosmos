@@ -8,7 +8,7 @@
 #include "camera.h"
 
 typedef struct Light {
-	float dir[3];
+	Vec3 position; /* Position in model space */
 
 	float ambient[3];
 	float diffuse[3];
@@ -18,24 +18,19 @@ typedef struct Light {
 } Light;
 
 typedef struct Entity {
-	enum { TYPE_MESH, TYPE_PATH, TYPE_LODSPHERE } type;
+	enum { ENTITY_MESH, ENTITY_PATH, ENTITY_LODSPHERE } type;
 
-	union {
-		struct {
-			Vec3 position;
-			Quaternion orientation;
-		} common;
-		struct {
-			Vec3 position;
-			Quaternion orientation;
-			Mesh *mesh;
-		} mesh;
-	} data;
+	/* Common stuff */
+	Vec3 position; /* XXX: Maybe make this a different type: Point3 */
+	Quaternion orientation;
+
+	/* TODO: Put all of this in a union */
+	Mesh *mesh;
 } Entity;
 
 void entity_upload_to_gpu(Shader *shader, Entity *ent);
 void entity_render(Shader *shader, Entity *ent);
-void lights_upload_to_gpu(Shader *shader);
+void light_upload_to_gpu(Shader *shader, Light *light);
 
 /* TODO: Cleanup globals */
 extern Light g_light;

@@ -19,6 +19,7 @@ GLvoid glmFreeMatrixStack(Matrix *mat);
 GLvoid glmLoadMatrix(Matrix *mat, GLdouble m[16]);
 GLvoid glmMultMatrix(Matrix *mat, GLdouble m[16]);
 GLvoid glmMultQuaternion(Matrix *mat, Quaternion q);
+Vec3 glmTransformVector(Matrix *mat, Vec3);
 GLvoid glmScale(Matrix *mat, GLdouble x, GLdouble y, GLdouble z);
 GLvoid glmScaleUniform(Matrix *mat, GLdouble r);
 GLvoid glmTranslate(Matrix *mat, GLdouble tx, GLdouble ty, GLdouble tz);

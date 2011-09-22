@@ -15,16 +15,12 @@
 #include "mesh.h"
 #include "render.h"
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846L
-#endif
-
 static void calcfps(void);
 int init_allegro(Camera *cam);
 
 ALLEGRO_DISPLAY *dpy;
 
-GLfloat light_dir[3] = {4, 0, 5};
+Vec3 light_pos = {4, 0, 5};
 GLfloat light_ambient[3] = {0.25, 0.20725, 0.20725};
 GLfloat light_diffuse[3] = {1, 0.829, 0.829};
 GLfloat light_specular[3] = {0.296648, 0.296648, 0.296648};
@@ -129,18 +125,18 @@ int main(int argc, char **argv)
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-	memcpy(g_light.dir, light_dir, sizeof(light_dir));
+	memcpy(&g_light.position, &light_pos, sizeof(light_pos));
 	memcpy(g_light.ambient, light_ambient, sizeof(light_ambient));
 	memcpy(g_light.diffuse, light_diffuse, sizeof(light_diffuse));
 	memcpy(g_light.specular, light_specular, sizeof(light_specular));
 	g_light.shininess = shininess;
 
-	lights_upload_to_gpu(shader);
+	light_upload_to_gpu(shader, &g_light);
 
-	ent.data.common.position = target;
-	ent.data.common.orientation = q0;
-	ent.type = TYPE_MESH;
-	ent.data.mesh.mesh = mesh;
+	ent.position = target;
+	ent.orientation = q0;
+	ent.type = ENTITY_MESH;
+	ent.mesh = mesh;
 	entity_upload_to_gpu(shader, &ent);
 
 	/* Transformation matrices */
@@ -210,19 +206,31 @@ int main(int argc, char **argv)
 			}
 		}
 
-		q = quat_slerp(q0, q1, fabs(fmod(t+1, 2) - 1));
-
-		t += 1.0/60/2;
-
-		glmLoadIdentity(modelview_matrix);
-		cam_view_matrix(&cam, modelview_matrix); /* view */
-		
+		/* Start render */
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		entity_render(shader, &ent);
+		/* Setup the view matrix */
+		glmLoadIdentity(modelview_matrix);
+		cam_view_matrix(&cam, modelview_matrix);
+
+		/* First the lights */
+		glmPushMatrix(&modelview_matrix);
+			g_light.position.x = 2 * cos(M_TWO_PI*t);
+			g_light.position.y = 2 * sin(M_TWO_PI*t);
+			g_light.position.z = 0;
+			light_upload_to_gpu(shader, &g_light);
+		glmPopMatrix(&modelview_matrix);
+		
+		/* Now the mesh */
+		glmPushMatrix(&modelview_matrix);
+			ent.orientation = q;
+			entity_render(shader, &ent);
+		glmPopMatrix(&modelview_matrix);
 
 		al_flip_display();
 		calcfps();
+		t += 1.0/60/2;
+		q = quat_slerp(q0, q1, fabs(fmod(t+1, 2) - 1));
 	}
 
 out:

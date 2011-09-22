@@ -2,7 +2,7 @@
 
 uniform mat4 projection_matrix;
 uniform mat4 modelview_matrix;
-uniform vec3 light_dir, light_ambient, light_diffuse, light_specular;
+uniform vec3 light_pos, light_ambient, light_diffuse, light_specular;
 uniform float shininess;
 
 in vec3 L, E, vertNormal;
@@ -20,7 +20,7 @@ void main(void)
 	RdotE = max(dot(R, E), 0);
 
 	fragColour = vec4(light_ambient + NdotL * light_diffuse +
-			pow(RdotE, shininess) * light_specular, 1);
+			pow(RdotE, shininess) * light_specular * 0, 1);
 
 }
 

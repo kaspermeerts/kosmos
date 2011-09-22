@@ -43,8 +43,8 @@ void entity_upload_to_gpu(Shader *shader, Entity *ent)
 {
 	switch(ent->type)
 	{
-	case TYPE_MESH:
-		upload_mesh_to_gpu(ent->data.mesh.mesh, shader);
+	case ENTITY_MESH:
+		upload_mesh_to_gpu(ent->mesh, shader);
 		break;
 	default:
 		break;
@@ -53,30 +53,36 @@ void entity_upload_to_gpu(Shader *shader, Entity *ent)
 	return;
 }
 
-void lights_upload_to_gpu(Shader *shader)
+void light_upload_to_gpu(Shader *shader, Light *light)
 {
-	glUniform3fv(shader->location[SHADER_UNI_LIGHT_DIR], 1, g_light.dir);
-	glUniform3fv(shader->location[SHADER_UNI_LIGHT_AMBIENT], 1, g_light.ambient);
-	glUniform3fv(shader->location[SHADER_UNI_LIGHT_DIFFUSE], 1, g_light.diffuse);
-	glUniform3fv(shader->location[SHADER_UNI_LIGHT_SPECULAR], 1, g_light.specular);
-	glUniform1f(shader->location[SHADER_UNI_LIGHT_SHININESS], g_light.shininess);
+	Vec3 newpos;
+	GLfloat pos4f[3];
+
+	newpos = glmTransformVector(modelview_matrix, light->position);
+	pos4f[0] = newpos.x; pos4f[1] = newpos.y; pos4f[2] = newpos.z;
+
+	glUniform3fv(shader->location[SHADER_UNI_LIGHT_POS], 1, pos4f);
+	glUniform3fv(shader->location[SHADER_UNI_LIGHT_AMBIENT], 1, light->ambient);
+	glUniform3fv(shader->location[SHADER_UNI_LIGHT_DIFFUSE], 1, light->diffuse);
+	glUniform3fv(shader->location[SHADER_UNI_LIGHT_SPECULAR], 1, light->specular);
+	glUniform1f(shader->location[SHADER_UNI_LIGHT_SHININESS], light->shininess);
 }
 
 void entity_render(Shader *shader, Entity *ent)
 {
 	glmPushMatrix(&modelview_matrix);
 
-	glmMultQuaternion(modelview_matrix, ent->data.common.orientation);
-	glmTranslate(modelview_matrix, ent->data.common.position.x, 
-			ent->data.common.position.y, ent->data.common.position.z);
+	glmMultQuaternion(modelview_matrix, ent->orientation);
+	glmTranslate(modelview_matrix, ent->position.x, 
+			ent->position.y, ent->position.z);
 
 	glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX],
 			projection_matrix);
 	glmUniformMatrix(shader->location[SHADER_UNI_MV_MATRIX], 
 			modelview_matrix);
 
-	glDrawRangeElements(GL_TRIANGLES, 0, ent->data.mesh.mesh->num_vertices - 1, 
-			ent->data.mesh.mesh->num_indices, GL_UNSIGNED_INT, NULL);
+	glDrawRangeElements(GL_TRIANGLES, 0, ent->mesh->num_vertices - 1, 
+			ent->mesh->num_indices, GL_UNSIGNED_INT, NULL);
 
 	glmPopMatrix(&modelview_matrix);
 }

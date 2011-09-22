@@ -68,8 +68,8 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 			glGetUniformLocation(shader->program, "modelview_matrix");
 	shader->location[SHADER_UNI_P_MATRIX] =
 			glGetUniformLocation(shader->program, "projection_matrix");
-	shader->location[SHADER_UNI_LIGHT_DIR] =
-			glGetUniformLocation(shader->program, "light_dir");
+	shader->location[SHADER_UNI_LIGHT_POS] =
+			glGetUniformLocation(shader->program, "light_pos");
 	shader->location[SHADER_UNI_LIGHT_AMBIENT] =
 			glGetUniformLocation(shader->program, "light_ambient");
 	shader->location[SHADER_UNI_LIGHT_DIFFUSE] =

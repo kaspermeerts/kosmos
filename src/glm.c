@@ -37,6 +37,8 @@ static void mat4_from_mat3(double a[16], Mat3 b)
 	A(1,0) = B(1,0); A(1,1) = B(1,1); A(1,2) = B(1,2); A(1,3) = 0.0;
 	A(2,0) = B(2,0); A(2,1) = B(2,1); A(2,2) = B(2,2); A(2,3) = 0.0;
 	A(3,0) = 0.0;    A(3,1) = 0.0;    A(3,2) = 0.0;    A(3,3) = 1.0;
+#undef B
+#undef A
 }
 
 GLvoid glmPrintMatrix(Matrix *mat)
@@ -122,6 +124,22 @@ GLvoid glmMultQuaternion(Matrix *mat, Quaternion q)
 	mat4_from_mat3(m4, m3);
 
 	glmMultMatrix(mat, m4);
+}
+
+/* Homogeneous transform */
+Vec3 glmTransformVector(Matrix *mat, Vec3 v)
+{
+	const GLdouble v0 = v.x, v1 = v.y, v2 = v.z, v3 = 1;
+	Vec3 out;
+	
+#define M(i,j) mat->m[4*j+i]
+	out.x = M(0,0)*v0 + M(0,1)*v1 + M(0,2)*v2 + M(0,3)*v3;
+	out.y = M(1,0)*v0 + M(1,1)*v1 + M(1,2)*v2 + M(1,3)*v3;
+	out.z = M(2,0)*v0 + M(2,1)*v1 + M(2,2)*v2 + M(2,3)*v3;
+//	v.w = M(3,0)*v0 + M(3,1)*v1 + M(3,2)*v2 + M(3,3)*v3;
+#undef M
+	
+	return out;	
 }
 
 /* Multiply m on the right with a scaling matrix */
