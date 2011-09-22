@@ -24,6 +24,8 @@ typedef struct Entity {
 	Vec3 position; /* XXX: Maybe make this a different type: Point3 */
 	Quaternion orientation;
 
+	GLuint vao; /* Vertex Array Object */
+
 	/* TODO: Put all of this in a union */
 	Mesh *mesh;
 } Entity;
@@ -32,8 +34,8 @@ void entity_upload_to_gpu(Shader *shader, Entity *ent);
 void entity_render(Shader *shader, Entity *ent);
 void light_upload_to_gpu(Shader *shader, Light *light);
 
-/* TODO: Cleanup globals */
-extern Light g_light;
+/* XXX: I'm planning on keeping these as globals. After all, it's how
+ * OpenGL used to do it.*/
 extern Matrix *projection_matrix;
 extern Matrix *modelview_matrix;
 

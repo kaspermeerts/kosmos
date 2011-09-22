@@ -72,6 +72,7 @@ static void calcfps()
 
 int main(int argc, char **argv)
 {
+	Light light;
 	Entity ent;
 	Shader *shader;
 	const char *filename;
@@ -125,13 +126,13 @@ int main(int argc, char **argv)
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-	memcpy(&g_light.position, &light_pos, sizeof(light_pos));
-	memcpy(g_light.ambient, light_ambient, sizeof(light_ambient));
-	memcpy(g_light.diffuse, light_diffuse, sizeof(light_diffuse));
-	memcpy(g_light.specular, light_specular, sizeof(light_specular));
-	g_light.shininess = shininess;
+	light.position = light_pos;
+	memcpy(light.ambient, light_ambient, sizeof(light_ambient));
+	memcpy(light.diffuse, light_diffuse, sizeof(light_diffuse));
+	memcpy(light.specular, light_specular, sizeof(light_specular));
+	light.shininess = shininess;
 
-	light_upload_to_gpu(shader, &g_light);
+	light_upload_to_gpu(shader, &light);
 
 	ent.position = target;
 	ent.orientation = q0;
@@ -140,7 +141,6 @@ int main(int argc, char **argv)
 	entity_upload_to_gpu(shader, &ent);
 
 	/* Transformation matrices */
-	cam_projection_matrix(&cam, projection_matrix);
 
 	/* Start rendering */
 	while(1)
@@ -209,20 +209,26 @@ int main(int argc, char **argv)
 		/* Start render */
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		/* Setup the view matrix */
+		/* Projection matrix */
+		glmLoadIdentity(projection_matrix);
+		cam_projection_matrix(&cam, projection_matrix);
+
+		/* View matrix */
 		glmLoadIdentity(modelview_matrix);
 		cam_view_matrix(&cam, modelview_matrix);
 
 		/* First the lights */
 		glmPushMatrix(&modelview_matrix);
-			g_light.position.x = 2 * cos(M_TWO_PI*t);
-			g_light.position.y = 2 * sin(M_TWO_PI*t);
-			g_light.position.z = 0;
-			light_upload_to_gpu(shader, &g_light);
+			/* No model matrix, location is directly in world space */
+			light.position.x = 5 * cos(M_TWO_PI*t);
+			light.position.y = 1;
+			light.position.z = 5 * sin(M_TWO_PI*t);
+			light_upload_to_gpu(shader, &light);
 		glmPopMatrix(&modelview_matrix);
 		
 		/* Now the mesh */
 		glmPushMatrix(&modelview_matrix);
+			/* The model matrix is set in the entity_render code */
 			ent.orientation = q;
 			entity_render(shader, &ent);
 		glmPopMatrix(&modelview_matrix);

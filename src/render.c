@@ -10,8 +10,6 @@ Matrix *projection_matrix;
 
 static void upload_mesh_to_gpu(Mesh *mesh, Shader *shader)
 {
-	/* TODO: So much error-checking */
-
 	/* Vertices */
 	glGenBuffers(1, &mesh->vertex_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_vbo);
@@ -30,7 +28,7 @@ static void upload_mesh_to_gpu(Mesh *mesh, Shader *shader)
 	glVertexAttribPointer(shader->location[SHADER_ATT_NORMAL], 3, GL_FLOAT,
 			GL_FALSE, sizeof(Normal), 0);
 
-	/* Triangles */
+	/* Indices */
 	glGenBuffers(1, &mesh->ibo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (size_t) mesh->num_indices * 
@@ -41,6 +39,9 @@ static void upload_mesh_to_gpu(Mesh *mesh, Shader *shader)
 
 void entity_upload_to_gpu(Shader *shader, Entity *ent)
 {
+	glGenVertexArrays(1, &ent->vao);
+	glBindVertexArray(ent->vao);
+
 	switch(ent->type)
 	{
 	case ENTITY_MESH:
@@ -50,22 +51,30 @@ void entity_upload_to_gpu(Shader *shader, Entity *ent)
 		break;
 	}
 
+	glBindVertexArray(0); /* So we don't accidentally overwrite the VAO */
+
 	return;
 }
 
 void light_upload_to_gpu(Shader *shader, Light *light)
 {
 	Vec3 newpos;
-	GLfloat pos4f[3];
+	GLfloat pos3f[3];
 
 	newpos = glmTransformVector(modelview_matrix, light->position);
-	pos4f[0] = newpos.x; pos4f[1] = newpos.y; pos4f[2] = newpos.z;
+	pos3f[0] = newpos.x; pos3f[1] = newpos.y; pos3f[2] = newpos.z;
 
-	glUniform3fv(shader->location[SHADER_UNI_LIGHT_POS], 1, pos4f);
+	glUniform3fv(shader->location[SHADER_UNI_LIGHT_POS], 1, pos3f);
 	glUniform3fv(shader->location[SHADER_UNI_LIGHT_AMBIENT], 1, light->ambient);
 	glUniform3fv(shader->location[SHADER_UNI_LIGHT_DIFFUSE], 1, light->diffuse);
 	glUniform3fv(shader->location[SHADER_UNI_LIGHT_SPECULAR], 1, light->specular);
 	glUniform1f(shader->location[SHADER_UNI_LIGHT_SHININESS], light->shininess);
+}
+
+static void render_mesh(Mesh *mesh)
+{
+	glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1, 
+			mesh->num_indices, GL_UNSIGNED_INT, NULL);
 }
 
 void entity_render(Shader *shader, Entity *ent)
@@ -73,16 +82,23 @@ void entity_render(Shader *shader, Entity *ent)
 	glmPushMatrix(&modelview_matrix);
 
 	glmMultQuaternion(modelview_matrix, ent->orientation);
-	glmTranslate(modelview_matrix, ent->position.x, 
-			ent->position.y, ent->position.z);
+	glmTranslateVector(modelview_matrix, ent->position);
 
-	glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX],
-			projection_matrix);
-	glmUniformMatrix(shader->location[SHADER_UNI_MV_MATRIX], 
-			modelview_matrix);
+	glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX], projection_matrix);
+	glmUniformMatrix(shader->location[SHADER_UNI_MV_MATRIX], modelview_matrix);
 
-	glDrawRangeElements(GL_TRIANGLES, 0, ent->mesh->num_vertices - 1, 
-			ent->mesh->num_indices, GL_UNSIGNED_INT, NULL);
+	glBindVertexArray(ent->vao);
+
+	switch(ent->type)
+	{
+	case ENTITY_MESH:
+		render_mesh(ent->mesh);
+		break;
+	default:
+		break;
+	};
+
+	glBindVertexArray(0);
 
 	glmPopMatrix(&modelview_matrix);
 }

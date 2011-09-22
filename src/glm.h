@@ -23,6 +23,7 @@ Vec3 glmTransformVector(Matrix *mat, Vec3);
 GLvoid glmScale(Matrix *mat, GLdouble x, GLdouble y, GLdouble z);
 GLvoid glmScaleUniform(Matrix *mat, GLdouble r);
 GLvoid glmTranslate(Matrix *mat, GLdouble tx, GLdouble ty, GLdouble tz);
+GLvoid glmTranslateVector(Matrix *mat, Vec3 v);
 GLvoid glmRotate(Matrix *mat, GLdouble angle, GLdouble ax,
 		GLdouble ay, GLdouble az);
 GLvoid glmOrtho(Matrix *mat, GLdouble left, GLdouble right,

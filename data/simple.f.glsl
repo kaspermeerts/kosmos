@@ -7,7 +7,7 @@ uniform float shininess;
 
 in vec3 L, E, vertNormal;
 
-out vec4 fragColour;
+out vec4 out_colour;
 
 void main(void)
 {
@@ -19,9 +19,7 @@ void main(void)
 	NdotL = max(dot(N, L), 0);
 	RdotE = max(dot(R, E), 0);
 
-	fragColour = vec4(light_ambient + NdotL * light_diffuse +
-			pow(RdotE, shininess) * light_specular * 0, 1);
+	out_colour = vec4(light_ambient + NdotL * light_diffuse +
+			pow(RdotE, shininess) * light_specular, 1);
 
 }
-
-

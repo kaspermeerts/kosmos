@@ -169,6 +169,11 @@ GLvoid glmTranslate(Matrix *mat, GLdouble tx, GLdouble ty, GLdouble tz)
 #undef M
 }
 
+GLvoid glmTranslateVector(Matrix *mat, Vec3 v)
+{
+	glmTranslate(mat, v.x, v.y, v.z);
+}
+
 GLvoid glmRotate(Matrix *mat, GLdouble angle, GLdouble ax,
 		GLdouble ay, GLdouble az)
 {

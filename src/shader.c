@@ -55,7 +55,7 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 		show_info_log(shader->program, glGetProgramiv, glGetProgramInfoLog);
 		goto errorout;
 	}
-	glBindFragDataLocation(shader->program, 0, "fragColour");
+	glBindFragDataLocation(shader->program, 0, "out_colour");
 
 	log_dbg("Loaded shader\n");
 	show_info_log(shader->program, glGetProgramiv, glGetProgramInfoLog);
