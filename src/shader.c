@@ -25,14 +25,18 @@ void shader_delete(Shader *shader)
 
 Shader *shader_create(const char *vertex_file, const char *fragment_file)
 {
+	ALLEGRO_PATH *vpath, *fpath;
 	GLint link_status;
 	Shader *shader = NULL;
 
-	shader = malloc(sizeof(Shader)); /* FIXME: Could be NULL */
-
+	/* 0 is a sane default for both shaders and the program */
+	if ((shader = calloc(1, sizeof(Shader))) == NULL)
+		return NULL;
+	
 	shader->program = glCreateProgram();
 	if (shader->program == 0)
 	{
+		/* How the hell can this fail */
 		log_err("Couldn't create GL program\n");
 		goto errorout;
 	}
@@ -57,15 +61,23 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 	}
 	glBindFragDataLocation(shader->program, 0, "out_colour");
 
-	log_dbg("Loaded shader\n");
+	vpath = al_create_path(vertex_file);
+	fpath = al_create_path(fragment_file);
+	log_dbg("Loaded shader from %s and %s\n", al_get_path_filename(vpath),
+			al_get_path_filename(fpath));
+	al_destroy_path(fpath);
+	al_destroy_path(vpath);
+
 	show_info_log(shader->program, glGetProgramiv, glGetProgramInfoLog);
 
 	shader->location[SHADER_ATT_POSITION] =
 			glGetAttribLocation(shader->program, "in_position");
 	shader->location[SHADER_ATT_NORMAL] =
 			glGetAttribLocation(shader->program, "in_normal");
-	shader->location[SHADER_UNI_MV_MATRIX] =
-			glGetUniformLocation(shader->program, "modelview_matrix");
+	shader->location[SHADER_UNI_M_MATRIX] =
+			glGetUniformLocation(shader->program, "model_matrix");
+	shader->location[SHADER_UNI_V_MATRIX] =
+			glGetUniformLocation(shader->program, "view_matrix");
 	shader->location[SHADER_UNI_P_MATRIX] =
 			glGetUniformLocation(shader->program, "projection_matrix");
 	shader->location[SHADER_UNI_LIGHT_POS] =

@@ -4,9 +4,7 @@
 #include "render.h"
 #include "mesh.h"
 
-Light g_light;
-Matrix *modelview_matrix;
-Matrix *projection_matrix;
+GLuint orbit_vbo;
 
 static void upload_mesh_to_gpu(Mesh *mesh, Shader *shader)
 {
@@ -37,6 +35,17 @@ static void upload_mesh_to_gpu(Mesh *mesh, Shader *shader)
 	return;
 }
 
+static void upload_orbit_to_gpu(int n, Vec3 *path, Shader *shader)
+{
+	glGenBuffers(1, &orbit_vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, orbit_vbo);
+	glBufferData(GL_ARRAY_BUFFER, (size_t) n * sizeof(Vec3), path,
+			GL_STATIC_DRAW);
+	glEnableVertexAttribArray(shader->location[SHADER_ATT_POSITION]);
+	glVertexAttribPointer(shader->location[SHADER_ATT_POSITION], 3, GL_FLOAT,
+		GL_FALSE, sizeof(Vec3), 0);
+}
+
 void entity_upload_to_gpu(Shader *shader, Entity *ent)
 {
 	glGenVertexArrays(1, &ent->vao);
@@ -46,6 +55,9 @@ void entity_upload_to_gpu(Shader *shader, Entity *ent)
 	{
 	case ENTITY_MESH:
 		upload_mesh_to_gpu(ent->mesh, shader);
+		break;
+	case ENTITY_ORBIT:
+		upload_orbit_to_gpu(ent->num_samples, ent->samples, shader);
 		break;
 	default:
 		break;
@@ -61,7 +73,7 @@ void light_upload_to_gpu(Shader *shader, Light *light)
 	Vec3 newpos;
 	GLfloat pos3f[3];
 
-	newpos = glmTransformVector(modelview_matrix, light->position);
+	newpos = glmTransformVector(glmViewMatrix, light->position);
 	pos3f[0] = newpos.x; pos3f[1] = newpos.y; pos3f[2] = newpos.z;
 
 	glUniform3fv(shader->location[SHADER_UNI_LIGHT_POS], 1, pos3f);
@@ -77,15 +89,21 @@ static void render_mesh(Mesh *mesh)
 			mesh->num_indices, GL_UNSIGNED_INT, NULL);
 }
 
+static void render_orbit(int n)
+{
+	glDrawArrays(GL_LINE_LOOP, 0, n);
+}
+
 void entity_render(Shader *shader, Entity *ent)
 {
-	glmPushMatrix(&modelview_matrix);
+	glmPushMatrix(&glmModelMatrix);
 
-	glmMultQuaternion(modelview_matrix, ent->orientation);
-	glmTranslateVector(modelview_matrix, ent->position);
+	glmMultQuaternion(glmModelMatrix, ent->orientation);
+	glmTranslateVector(glmModelMatrix, ent->position);
 
-	glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX], projection_matrix);
-	glmUniformMatrix(shader->location[SHADER_UNI_MV_MATRIX], modelview_matrix);
+	glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX], glmProjectionMatrix);
+	glmUniformMatrix(shader->location[SHADER_UNI_V_MATRIX], glmViewMatrix);
+	glmUniformMatrix(shader->location[SHADER_UNI_M_MATRIX], glmModelMatrix);
 
 	glBindVertexArray(ent->vao);
 
@@ -94,11 +112,15 @@ void entity_render(Shader *shader, Entity *ent)
 	case ENTITY_MESH:
 		render_mesh(ent->mesh);
 		break;
+	case ENTITY_ORBIT:
+		glBindBuffer(GL_ARRAY_BUFFER, orbit_vbo);
+		render_orbit(ent->num_samples);
+		break;
 	default:
 		break;
 	};
 
 	glBindVertexArray(0);
 
-	glmPopMatrix(&modelview_matrix);
+	glmPopMatrix(&glmModelMatrix);
 }

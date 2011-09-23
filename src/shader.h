@@ -13,13 +13,14 @@ typedef struct {
 
 #define SHADER_ATT_POSITION 0
 #define SHADER_ATT_NORMAL   1
-#define SHADER_UNI_MV_MATRIX 2
-#define SHADER_UNI_P_MATRIX 3
-#define SHADER_UNI_LIGHT_POS 4
-#define SHADER_UNI_LIGHT_AMBIENT 5
-#define SHADER_UNI_LIGHT_DIFFUSE 6
-#define SHADER_UNI_LIGHT_SPECULAR 7
-#define SHADER_UNI_LIGHT_SHININESS 8
+#define SHADER_UNI_M_MATRIX 2
+#define SHADER_UNI_V_MATRIX 3
+#define SHADER_UNI_P_MATRIX 4
+#define SHADER_UNI_LIGHT_POS 5
+#define SHADER_UNI_LIGHT_AMBIENT 6
+#define SHADER_UNI_LIGHT_DIFFUSE 7
+#define SHADER_UNI_LIGHT_SPECULAR 8
+#define SHADER_UNI_LIGHT_SHININESS 9
 
 Shader *shader_create(const char *vertex_source, const char *fragment_source);
 void shader_delete(Shader *shader);

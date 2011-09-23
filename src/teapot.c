@@ -112,14 +112,15 @@ int main(int argc, char **argv)
 
 	glewInit();
 
-	shader = shader_create(STRINGIFY(ROOT_PATH) "/data/simple.v.glsl", 
-	                       STRINGIFY(ROOT_PATH) "/data/simple.f.glsl");
+	shader = shader_create(STRINGIFY(ROOT_PATH) "/data/lighting.v.glsl", 
+	                       STRINGIFY(ROOT_PATH) "/data/lighting.f.glsl");
 	if (shader == NULL)
 		return 1;
 	glUseProgram(shader->program);
 
-	projection_matrix = glmNewMatrixStack();
-	modelview_matrix = glmNewMatrixStack();
+	glmProjectionMatrix = glmNewMatrixStack();
+	glmViewMatrix = glmNewMatrixStack();
+	glmModelMatrix = glmNewMatrixStack();
 
 	glClearColor(100/255., 149/255., 237/255., 1.0);
 	glEnable(GL_DEPTH_TEST);
@@ -197,8 +198,8 @@ int main(int argc, char **argv)
 			case ALLEGRO_EVENT_DISPLAY_RESIZE:
 				cam.width = ev.display.width;
 				cam.height = ev.display.height;
-				glmLoadIdentity(projection_matrix);
-				cam_projection_matrix(&cam, projection_matrix);
+				glmLoadIdentity(glmProjectionMatrix);
+				cam_projection_matrix(&cam, glmProjectionMatrix);
 				glViewport(cam.left, cam.bottom, cam.width, cam.height);
 				break;
 			default:
@@ -210,28 +211,26 @@ int main(int argc, char **argv)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		/* Projection matrix */
-		glmLoadIdentity(projection_matrix);
-		cam_projection_matrix(&cam, projection_matrix);
+		glmLoadIdentity(glmProjectionMatrix);
+		cam_projection_matrix(&cam, glmProjectionMatrix);
 
 		/* View matrix */
-		glmLoadIdentity(modelview_matrix);
-		cam_view_matrix(&cam, modelview_matrix);
+		glmLoadIdentity(glmViewMatrix);
+		cam_view_matrix(&cam, glmViewMatrix);
 
 		/* First the lights */
-		glmPushMatrix(&modelview_matrix);
-			/* No model matrix, location is directly in world space */
-			light.position.x = 5 * cos(M_TWO_PI*t);
-			light.position.y = 1;
-			light.position.z = 5 * sin(M_TWO_PI*t);
-			light_upload_to_gpu(shader, &light);
-		glmPopMatrix(&modelview_matrix);
+		/* No model matrix yet, location is directly in world space */
+		light.position.x = 5 * cos(M_TWO_PI*t);
+		light.position.y = 1;
+		light.position.z = 5 * sin(M_TWO_PI*t);
+		light_upload_to_gpu(shader, &light);
 		
 		/* Now the mesh */
-		glmPushMatrix(&modelview_matrix);
+		glmPushMatrix(&glmModelMatrix);
 			/* The model matrix is set in the entity_render code */
 			ent.orientation = q;
 			entity_render(shader, &ent);
-		glmPopMatrix(&modelview_matrix);
+		glmPopMatrix(&glmModelMatrix);
 
 		al_flip_display();
 		calcfps();
@@ -247,8 +246,9 @@ out:
 	free(mesh);
 
 	shader_delete(shader);
-	glmFreeMatrixStack(projection_matrix);
-	glmFreeMatrixStack(modelview_matrix);
+	glmFreeMatrixStack(glmProjectionMatrix);
+	glmFreeMatrixStack(glmViewMatrix);
+	glmFreeMatrixStack(glmModelMatrix);
 	al_destroy_display(dpy);
 	return 0;
 }

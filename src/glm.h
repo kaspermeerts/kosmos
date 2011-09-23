@@ -9,6 +9,10 @@ typedef struct Matrix {
 	struct Matrix *next;
 } Matrix;
 
+extern Matrix *glmProjectionMatrix;
+extern Matrix *glmViewMatrix;
+extern Matrix *glmModelMatrix;
+
 GLvoid glmPrintMatrix(Matrix *mat);
 GLvoid glmUniformMatrix(GLint location, Matrix *mat);
 GLvoid glmLoadIdentity(Matrix *mat);

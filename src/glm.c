@@ -8,6 +8,10 @@
 #include "glm.h"
 #include "mathlib.h"
 
+Matrix *glmProjectionMatrix;
+Matrix *glmViewMatrix;
+Matrix *glmModelMatrix;
+
 static void matrix_mul_matrix(double *c, double *a, double *b);
 static void mat4_from_mat3(double a[16], Mat3 m);
 
