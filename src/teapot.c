@@ -38,8 +38,7 @@ int init_allegro(Camera *cam)
 		return 1;
 	
 	al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_RESIZABLE |
-			ALLEGRO_OPENGL | ALLEGRO_OPENGL_FORWARD_COMPATIBLE);
-	
+			ALLEGRO_OPENGL | ALLEGRO_OPENGL_3_0 );	
 	al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
 
 	dpy = al_create_display(cam->left + cam->width, cam->bottom + cam->height);

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <GL/gl.h>
 #include <rply.h>
+#include <allegro5/allegro.h>
 
 #include "mathlib.h"
 #include "mesh.h"
@@ -35,10 +36,11 @@ static void unitize_mesh(Mesh *mesh);
 
 Mesh *mesh_import(const char *filename)
 {
+	ALLEGRO_PATH *path;
 	Mesh *mesh;
-	const char *tail;
 
-	mesh = malloc(sizeof(Mesh));
+	if ((mesh = calloc(1, sizeof(Mesh))) == NULL)
+		return NULL;
 
 	/* TODO: Other fileformats */
 	if (mesh_load_ply(mesh, filename) == false)
@@ -48,9 +50,10 @@ Mesh *mesh_import(const char *filename)
 		return NULL;
 	}
 
-	tail = strrchr(filename, '/');
-	mesh->name = strdup((tail ? tail + 1 : filename));
+	path = al_create_path(filename);
+	mesh->name = strdup(al_get_path_filename(path));
 	log_dbg("Loaded mesh %s\n", mesh->name);
+	al_destroy_path(path);
 	generate_normals(mesh); /* FIXME: What if we already have normals? */
 	unitize_mesh(mesh);
 

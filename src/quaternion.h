@@ -25,5 +25,6 @@ void mat3_from_quat(Mat3 m, Quaternion p);
 Vec3 quat_transform(Quaternion q, Vec3 v);
 Quaternion quat_nlerp(Quaternion a, Quaternion b, double t);
 Quaternion quat_slerp(Quaternion a, Quaternion b, double t);
+Quaternion quat_euler(double t1, double t2, double t3);
 
 #endif

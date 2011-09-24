@@ -238,3 +238,12 @@ Quaternion quat_slerp(Quaternion a, Quaternion b, double t)
 	return quat_add(quat_scale(q0, cos(interangle)),
 	                quat_scale(q1, sin(interangle)));
 }
+
+Quaternion quat_euler(double t1, double t2, double t3)
+{
+	Mat3 mat;
+
+	mat3_euler(t1, t2, t3, mat);
+
+	return quat_from_mat3(mat);
+}

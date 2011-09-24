@@ -19,7 +19,7 @@ add_executable(teapot teapot.c log.c)
 target_link_libraries(teapot MyRender External)
 
 add_executable(meshinfo meshinfo.c mesh.c log.c)
-target_link_libraries(meshinfo MyMath External)
+target_link_libraries(meshinfo allegro MyMath External)
 
 add_executable(orrery orrery.c solarsystem.c keplerorbit.c log.c)
 target_link_libraries(orrery MyRender External)

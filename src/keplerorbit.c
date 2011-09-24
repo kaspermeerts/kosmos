@@ -27,10 +27,10 @@ Vec3 kepler_position_at_true_anomaly(KeplerOrbit *orbit, double theta)
 	Vec3 plane_pos;
 
 	plane_pos.x = p / (1 + e*cos(theta)) * cos(theta);
-	plane_pos.y = p / (1 + e*sin(theta)) * sin(theta);
+	plane_pos.y = p / (1 + e*cos(theta)) * sin(theta);
 	plane_pos.z = 0;
 
-	return mat3_transform(orbit->plane_orientation, plane_pos);
+	return quat_transform(orbit->plane_orientation, plane_pos);
 }
 
 Vec3 kepler_position_at_E(KeplerOrbit *orbit, double E)
@@ -43,7 +43,7 @@ Vec3 kepler_position_at_E(KeplerOrbit *orbit, double E)
 	plane_pos.y = b * sin(E);
 	plane_pos.z = 0;
 
-	return mat3_transform(orbit->plane_orientation, plane_pos);
+	return quat_transform(orbit->plane_orientation, plane_pos);
 }
 
 Vec3 kepler_position_at_time(KeplerOrbit *orbit, double jd)

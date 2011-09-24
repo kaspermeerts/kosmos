@@ -13,7 +13,7 @@ typedef struct KeplerOrbit {
 
 	double epoch;
 	double period;
-	Mat3 plane_orientation;
+	Quaternion plane_orientation;
 } KeplerOrbit;
 
 Vec3 kepler_position_at_true_anomaly(KeplerOrbit *orbit, double theta);

@@ -12,16 +12,10 @@
  * allocator to fix this. */
 extern char *strdup(const char *str); /* FIXME Damnit */
 
-static bool config_get_long(ALLEGRO_CONFIG *cfg, const char *sec,
-		const char *key, long *ret);
-static bool config_get_double(ALLEGRO_CONFIG *cfg, const char *sec,
-		const char *key, double *ret);
-static bool config_get_string(ALLEGRO_CONFIG *cfg, const char *sec,
-		const char *key, char **ret);
-static bool load_planet(ALLEGRO_CONFIG *cfg, const char *sec, 
-		Planet *planet);
+static bool load_body(ALLEGRO_CONFIG *cfg, const char *sec,	Body *body);
 static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg);
 
+#if 0
 static bool config_get_long(ALLEGRO_CONFIG *cfg, const char *sec,
 		const char *key, long *ret)
 {
@@ -51,7 +45,7 @@ static bool config_get_long(ALLEGRO_CONFIG *cfg, const char *sec,
 		return false;
 	}
 	errno = saved_errno;
-	
+
 	if (*endptr != '\0')
 	{
 		log_err("Section %s: Key %s invalid\n", sec, key);
@@ -66,9 +60,10 @@ static bool config_get_long(ALLEGRO_CONFIG *cfg, const char *sec,
 
 	return true;
 }
+#endif
 
 static bool config_get_double(ALLEGRO_CONFIG *cfg, const char *sec,
-		const char *key, double *ret)
+		const char *key, double *ret, bool optional)
 {
 	int saved_errno;
 	const char *value;
@@ -77,7 +72,8 @@ static bool config_get_double(ALLEGRO_CONFIG *cfg, const char *sec,
 	value = al_get_config_value(cfg, sec, key);
 	if (value == NULL)
 	{
-		log_err("Section %s: Key %s not found\n", sec, key);
+		if (!optional)
+			log_err("Section %s: Key %s not found\n", sec, key);
 		return false;
 	}
 
@@ -86,86 +82,127 @@ static bool config_get_double(ALLEGRO_CONFIG *cfg, const char *sec,
 	*ret = strtod(value, &endptr);
 	if (errno != 0)
 	{
-		log_err("Section %s: Key %s invalid: %s\n", sec, key,
-				strerror(errno));
+		if (!optional)
+			log_err("Section %s: Key %s invalid: %s\n", sec, key, 
+					strerror(errno));
 		return false;
 	}
 	errno = saved_errno;
-	
+
 	if (*endptr != '\0')
 	{
-		log_err("Section %s: Key %s invalid\n", sec, key);
+		if (!optional)
+			log_err("Section %s: Key %s invalid\n", sec, key);
 		return false;
 	}
 	if (endptr == value)
 	{
-		log_err("Section %s: Key %s empty\n", sec, key);
+		if (!optional)
+			log_err("Section %s: Key %s empty\n", sec, key);
 		return false;
 	}
-
 
 	return true;
 }
 
 static bool config_get_string(ALLEGRO_CONFIG *cfg, const char *sec,
-		const char *key, char **ret)
+		const char *key, char **ret, bool optional)
 {
 	const char *value;
-	char *dupstr;
 
+	*ret = NULL;
 	value = al_get_config_value(cfg, sec, key);
 	if (value == NULL)
 	{
-		log_err("Error in section %s: Key %s not found\n", sec, key);
+		if (!optional)
+			log_err("Error in section %s: Key %s not found\n", sec, key);
 		return false;
 	}
 	if (value[0] == '\0')
 	{
-		log_err("Error in section %s: Key %s empty\n", sec, key);
+		if (!optional)
+			log_err("Error in section %s: Key %s empty\n", sec, key);
 		return false;
 	}
 
-	dupstr = strdup(value);
-	if (dupstr == NULL)
+	*ret = strdup(value);
+	if (*ret == NULL)
 	{
 		log_err("Out of memory\n");
 		return false;
 	}
 
-	*ret = dupstr;
-
 	return true;
 }
 
-static bool load_planet(ALLEGRO_CONFIG *cfg, const char *sec, 
-		Planet *planet)
+static bool load_body(ALLEGRO_CONFIG *cfg, const char *fullname, Body *body)
 {
-	if (al_get_first_config_entry(cfg, sec, NULL) == NULL)
+	const char *name;
+	char *type;
+
+	if (al_get_first_config_entry(cfg, fullname, NULL) == NULL)
 	{
-		log_err("Section %s not in file\n", sec);
+		log_err("Section %s not in file\n", fullname);
 		return false;
 	}
 
-	if (!config_get_string(cfg, sec, "Name", &planet->name))
+	if (!config_get_double(cfg, fullname, "Mass", &body->mass, false))
+		return false;
+
+	if (!config_get_double(cfg, fullname, "Gravitational parameter",
+			&body->grav_param, true))
 	{
-		log_err("Couldn't find %s's name\n", sec);
+		body->grav_param = GRAV_CONST * body->mass;
+	}
+
+	/* Figure out what kind of object it is */
+	config_get_string(cfg, fullname, "Type", &type, true);
+	if (type == NULL)
+		body->type = BODY_UNKNOWN;
+	else if (strcmp(type, "Star") == 0)
+		body->type = BODY_STAR;
+	else if (strcmp(type, "Planet") == 0)
+		body->type = BODY_PLANET;
+	else if (strcmp(type, "Moon") == 0)
+		body->type = BODY_PLANET;
+	else if (strcmp(type, "Comet") == 0)
+		body->type = BODY_COMET;
+	else
+	{
+		log_err("Unknown type: %s\n", type);
 		return false;
 	}
 
-	if (!config_get_double(cfg, sec, "Mass", &planet->mass))
+	if ((name = strrchr(fullname, '/')) == NULL)
 	{
-		log_err("Couldn't find %s's mass\n", sec);
+		body->name = strdup(fullname);
+		body->type = (body->type == BODY_UNKNOWN ? BODY_STAR : body->type);
+		body->primary = NULL;
+		body->primary_name = NULL;
+	} else if (name == fullname) /* No primary name, eg: sec = "/Earth" */
+	{
+		log_err("Missing primary of %s", fullname);
 		return false;
-	}
-
-	if (!config_get_double(cfg, sec, "Ecc", &planet->orbit.Ecc) ||
-	    !config_get_double(cfg, sec, "SMa", &planet->orbit.SMa) ||
-	    !config_get_double(cfg, sec, "Inc", &planet->orbit.Inc) ||
-	    !config_get_double(cfg, sec, "LAN", &planet->orbit.LAN) ||
-	    !config_get_double(cfg, sec, "APe", &planet->orbit.APe) ||
-	    !config_get_double(cfg, sec, "MnA", &planet->orbit.MnA))
+	} else
 	{
-		log_err("Couldn't load orbital elements of %s\n", sec);
+		body->name = strdup(name + 1);
+		body->type = (body->type == BODY_UNKNOWN ? BODY_PLANET : body->type);
+		body->primary_name = malloc(name - fullname + 1);
+		memcpy(body->primary_name, fullname, name - fullname);
+		body->primary_name[name - fullname] = '\0';
+	}
+	
+	if (body->primary_name == NULL)
+		return true;
+	
+	if (!config_get_double(cfg, fullname, "Ecc", &body->orbit.Ecc, false) ||
+	    !config_get_double(cfg, fullname, "SMa", &body->orbit.SMa, false) ||
+	    !config_get_double(cfg, fullname, "Inc", &body->orbit.Inc, false) ||
+	    !config_get_double(cfg, fullname, "LAN", &body->orbit.LAN, false) ||
+	    !config_get_double(cfg, fullname, "APe", &body->orbit.APe, false) ||
+	    !config_get_double(cfg, fullname, "MnA", &body->orbit.MnA, false))
+	{
+		log_err("Couldn't load orbital elements of %s\n", fullname);
 		return false;
 	}
 
@@ -175,78 +212,98 @@ static bool load_planet(ALLEGRO_CONFIG *cfg, const char *sec,
 static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 {
 	SolarSystem *solsys;
-	long num_planets;
-	char secname[16]; /* Enough for 10,000,000 planets */
+	const char *name;
+	long num_bodies;
+	ALLEGRO_CONFIG_SECTION *sec;
 	int i;
 
-	if (!config_get_long(cfg, "Star", "Planets", &num_planets))
+	/* First pass: Determine the number of bodies in the file */
+	num_bodies = 0;
+	name = al_get_first_config_section(cfg, &sec);
+	while (name)
 	{
-		log_err("No number of planets in file\n");
-		return NULL;
+		if (name[0] != '\0')
+			num_bodies++;
+		name = al_get_next_config_section(&sec);
 	}
-	if (num_planets < 0)
-	{
-		log_err("Number of planets must be positive\n");
-		return NULL;
-	}
+	
+	if (num_bodies == 0)
+		return NULL; /* Empty solarsystem */
 
-	solsys = malloc(sizeof(SolarSystem) + num_planets*sizeof(Planet));
+	solsys = malloc(sizeof(SolarSystem) + num_bodies*sizeof(Body));
 	if (solsys == NULL)
-	{
-		log_err("Out of memory\n");
 		return NULL;
-	}
-	solsys->num_planets = num_planets;
+	solsys->num_bodies = num_bodies;
 
-	if (!config_get_string(cfg, "Star", "Name", &solsys->name))
+	/* Second pass: Load all celestial bodies */
+	if ((name = al_get_first_config_section(cfg, &sec)) == NULL)
 	{
-		log_err("Star has no name\n");
+		log_err("Internal consistency error\n");
 		free(solsys);
 		return NULL;
 	}
 
-	if (!config_get_double(cfg, "Star", "Mass", &solsys->star_mass))
+	i = -1;
+	while (++i < num_bodies && name)
 	{
-		log_err("No mass given\n");
-		free(solsys->name);
-		free(solsys);
-		return NULL;
-	}
+		Body *body = &solsys->body[i];
 
-	if (!config_get_double(cfg, "Star", "Gravitational parameter", 
-			&solsys->star_mu))
-		solsys->star_mu = GRAV_CONST * solsys->star_mass;
-
-	for (i = 0; i < solsys->num_planets; i++)
-	{
-		Planet *planet = &solsys->planet[i];
-
-		snprintf(secname, sizeof(secname), "Planet %d", i + 1);
-		
-		if (load_planet(cfg, secname, planet) == false)
+		if (name[0] == '\0')
 		{
-			log_err("Failure to load planet %d\n", i + 1);
-			free(solsys->name);
+			name = al_get_next_config_section(&sec);
+			i--;
+			continue;
+		}
+
+		if (load_body(cfg, name, body) == false)
+		{
+			log_err("Couldn't load body %s\n", name);
 			free(solsys);
 			return NULL;
 		}
+		name = al_get_next_config_section(&sec);
+	}
 
-		/* XXX Is this the best place to set this? */
-		planet->orbit.epoch = 0;
-		planet->orbit.period = M_TWO_PI * 
-				sqrt(CUBE(planet->orbit.SMa) / solsys->star_mu);
-		mat3_euler(RAD(planet->orbit.LAN), 
-				RAD(planet->orbit.Inc),
-				RAD(planet->orbit.APe),
-				planet->orbit.plane_orientation);
+	if (i < num_bodies)
+		log_err("Internal consistency error\n");
 
-		/*
-		planet->orbit_path = calloc(sizeof(Vec3), planet->num_samples);
-		for (j = 0; j < planet->num_samples; j++)
-			planet->orbit_path[j] = kepler_position_at_true_anomaly(
-					&planet->orbit, M_TWO_PI / planet->num_samples * j);	
-		*/
-	}	
+	/* Third pass: Connect each body to its primary */
+	for (i = 0; i < num_bodies; i++)
+	{
+		Body *body = &solsys->body[i];
+		if (body->primary_name == NULL) /* Independent body */
+			continue;
+		for (int j = 0; j < num_bodies; j++)
+		{
+			if (strcmp(body->primary_name, solsys->body[j].name) == 0)
+			{
+				body->primary = &solsys->body[j];
+				break;
+			}
+		}
+		if (solsys->body[i].primary == NULL)
+		{
+			log_err("Couldn't find %s's primary: %s\n", body->name,
+					body->primary_name);
+			free(solsys);
+			return NULL;
+		}
+		free(solsys->body[i].primary_name);
+		solsys->body[i].primary_name = NULL; /* Won't ever be used again */
+		
+		body->orbit.epoch = 0;
+		body->orbit.period = M_TWO_PI *
+				sqrt(CUBE(body->orbit.SMa) / body->primary->grav_param);
+		body->orbit.plane_orientation = quat_euler(RAD(body->orbit.LAN),
+				RAD(body->orbit.Inc),
+				RAD(body->orbit.APe));
+	}
+
+	for (i = 0; i < num_bodies; i++)
+	{
+		Body *b = &solsys->body[i];
+		log_dbg("Body %d: name %s, type %d, primary %s\n", i, b->name, b->type, (b->primary ? b->primary->name : "None"));
+	}
 
 	return solsys;
 }
@@ -277,10 +334,36 @@ SolarSystem *solsys_load(const char *filename)
 	if (ret == NULL)
 		log_err("Couldn't load solarsystem from file: %s\n", filename);
 	else
-		log_dbg("Loaded a solarsystem with %d planets\n", ret->num_planets);
-	
+		log_dbg("Loaded a solarsystem with %d bodies\n", ret->num_bodies);
+
 	al_destroy_config(cfg);
 	al_fclose(file);
 
 	return ret;
 }
+
+static void update_body_position(Body *body, double t)
+{
+	Vec3 v; /* Position relative to the primary */
+
+	if (body->primary)
+	{
+		v = kepler_position_at_time(&body->orbit, t);
+		update_body_position(body->primary, t);
+		body->position = vec3_add(body->primary->position, v);
+	} else
+	{
+		body->position = (Vec3) {0, 0, 0};
+	}
+		
+	return;
+}	
+
+void solsys_update(SolarSystem *solsys, double t)
+{
+	int i;
+
+	for (i = 0; i < solsys->num_bodies; i++)
+		update_body_position(&solsys->body[i], t);
+}
+		

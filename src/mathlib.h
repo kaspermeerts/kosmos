@@ -4,8 +4,9 @@
 #ifndef M_PI
 #define M_PI 3.141592653589793238462643
 #endif
+#ifndef M_TWO_PI
 #define M_TWO_PI 6.283185307179586476925287
-
+#endif
 #ifndef GRAV_CONST
 #define GRAV_CONST 6.67384e-11
 #endif

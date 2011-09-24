@@ -4,24 +4,26 @@
 #include "mathlib.h"
 #include "keplerorbit.h"
 
-typedef struct Planet {
+typedef struct Body {
 	char *name;
 	double mass;
-	KeplerOrbit orbit;
+	double grav_param; /* Gravitational parameter */
 
-	int num_samples;
-	Vec3 *orbit_path;
-} Planet;
+	Vec3 position; /* Take care to update this before you use it */
+
+	enum { BODY_STAR, BODY_PLANET, BODY_COMET, BODY_UNKNOWN } type;
+
+	KeplerOrbit orbit; /* Optional */
+	char *primary_name;
+	struct Body *primary; /* Parent body */
+} Body;
 
 typedef struct SolarSystem {
-	char *name;
-	double star_mass;
-	double star_mu; /* Gravitational parameter */
-
-	int num_planets;
-	Planet planet[];
+	int num_bodies;
+	Body body[];
 } SolarSystem;
 
 SolarSystem *solsys_load(const char *filename);
+void solsys_update(SolarSystem *solsys, double time);
 
 #endif

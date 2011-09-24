@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 	Entity ent_orbit;
 	const char *filename;
 	Camera cam;
-	Vec3 position = {0, 0, 150e9};
+	Vec3 position = {0, 0, 2e9};
 	Vec3 up =  {0, 1, 0};
 	Vec3 target = {0, 0, 0};
 	bool wireframe = false;
@@ -162,9 +162,9 @@ int main(int argc, char **argv)
 	ent_orbit.type = ENTITY_ORBIT;
 	ent_orbit.position = (Vec3) {0, 0, 0};
 	ent_orbit.orientation = (Quaternion) {1, 0, 0, 0};
-	ent_orbit.num_samples = solsys->planet[0].num_samples;
-	ent_orbit.samples = solsys->planet[0].orbit_path;
-	entity_upload_to_gpu(shader_simple, &ent_orbit);
+	ent_orbit.num_samples = 1000;
+	ent_orbit.samples = NULL;
+	//entity_upload_to_gpu(shader_simple, &ent_orbit);
 
 	/* Transformation matrices */
 	cam_projection_matrix(&cam, glmProjectionMatrix);
@@ -228,8 +228,15 @@ int main(int argc, char **argv)
 
 		t += 86400;
 
+		/* Physics stuff */
+		solsys_update(solsys, t);
+		
+		cam_lookat(&cam, cam.position, solsys->body[3].position, up);
+
+		/* Rendering stuff */
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+		glmLoadIdentity(glmModelMatrix);
 		glmLoadIdentity(glmViewMatrix);
 		cam_view_matrix(&cam, glmViewMatrix); /* view */
 
@@ -237,19 +244,14 @@ int main(int argc, char **argv)
 
 		light_upload_to_gpu(shader_light, &light);
 
-		ent.position = (Vec3) {0, 0, 0};
-		entity_render(shader_light, &ent);
-		for (i = 0; i < solsys->num_planets; i++)
+		for (i = 0; i < solsys->num_bodies; i++)
 		{
-			Vec3 v = kepler_position_at_time(&solsys->planet[i].orbit, t);
-			
-			ent.position = v;
-
+			ent.position = solsys->body[i].position;
 			entity_render(shader_light, &ent);
 		}
 
-		glUseProgram(shader_simple->program);
-		entity_render(shader_simple, &ent_orbit);
+		//glUseProgram(shader_simple->program);
+		//entity_render(shader_simple, &ent_orbit);
 
 
 		al_flip_display();
