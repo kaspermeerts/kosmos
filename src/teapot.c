@@ -14,6 +14,7 @@
 #include "camera.h"
 #include "mesh.h"
 #include "render.h"
+#include "input.h"
 
 static void calcfps(void);
 int init_allegro(Camera *cam);
@@ -83,7 +84,6 @@ int main(int argc, char **argv)
 	Quaternion q1 = quat_normalize((Quaternion) {0, 0, -1, 0});
 	Quaternion q;
 	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
-	bool wireframe = false;
 	Mesh *mesh;
 	if (argc < 2)
 		filename = STRINGIFY(ROOT_PATH) "/data/teapot.ply";
@@ -143,68 +143,8 @@ int main(int argc, char **argv)
 	/* Transformation matrices */
 
 	/* Start rendering */
-	while(1)
+	while(handle_input(ev_queue, &cam))
 	{
-		ALLEGRO_EVENT ev;
-		ALLEGRO_MOUSE_STATE state;
-
-		while (al_get_next_event(ev_queue, &ev))
-		{
-			switch (ev.type)
-			{
-			case ALLEGRO_EVENT_DISPLAY_CLOSE:
-				goto out;
-				break;
-			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-				al_show_mouse_cursor(dpy);
-				al_ungrab_mouse();
-				break;
-			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
-				al_hide_mouse_cursor(dpy);
-				al_grab_mouse(dpy);
-				break;
-			case ALLEGRO_EVENT_MOUSE_AXES:
-				if (ev.mouse.dz != 0)
-					cam_dolly(&cam, ev.mouse.dz);
-				al_get_mouse_state(&state);
-				if (state.buttons & 1)
-					cam_orbit(&cam, ev.mouse.dx, -ev.mouse.dy);
-				else if (state.buttons & 2)
-					cam_rotate(&cam, ev.mouse.dx, -ev.mouse.dy);
-				/* The y coordinate needs to be inverted because OpenGL has
-				 * the origin in the lower-left and Allegro the upper-left */
-				break;
-			case ALLEGRO_EVENT_KEY_CHAR:
-				if (ev.keyboard.unichar == 'w')
-				{
-					wireframe = !wireframe;
-					if (wireframe)
-					{
-						glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-						glDisable(GL_CULL_FACE);
-					}
-					else
-					{
-						glPolygonMode(GL_FRONT, GL_FILL);
-						glEnable(GL_CULL_FACE);
-					}
-				} else if (ev.keyboard.unichar == 'c')
-				{
-					Vec3 upv = quat_transform(cam.orientation, (Vec3){0, 1, 0});
-					cam_lookat(&cam, cam.position, cam.target, upv);
-				}
-				break;
-			case ALLEGRO_EVENT_DISPLAY_RESIZE:
-				cam.width = ev.display.width;
-				cam.height = ev.display.height;
-				glmLoadIdentity(glmProjectionMatrix);
-				cam_projection_matrix(&cam, glmProjectionMatrix);
-				glViewport(cam.left, cam.bottom, cam.width, cam.height);
-				break;
-			default:
-				break;
-			}
-		}
 
 		/* Start render */
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -237,7 +177,6 @@ int main(int argc, char **argv)
 		q = quat_slerp(q0, q1, fabs(fmod(t+1, 2) - 1));
 	}
 
-out:
 	free(mesh->name);
 	free(mesh->vertex);
 	free(mesh->normal);

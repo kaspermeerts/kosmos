@@ -15,6 +15,7 @@
 #include "mesh.h"
 #include "solarsystem.h"
 #include "render.h"
+#include "input.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846L
@@ -24,7 +25,7 @@ static void calcfps(void);
 int init_allegro(Camera *cam);
 
 ALLEGRO_DISPLAY *dpy;
-ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
+	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
 
 Vec3 light_pos = {0, 0, 0};
 GLfloat light_ambient[3] = {0.25, 0.20725, 0.20725};
@@ -45,7 +46,7 @@ int init_allegro(Camera *cam)
 	if (!al_install_keyboard())
 		return 1;
 	
-	al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_OPENGL | ALLEGRO_OPENGL_FORWARD_COMPATIBLE);
+	al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_OPENGL | ALLEGRO_OPENGL_FORWARD_COMPATIBLE | ALLEGRO_RESIZABLE);
 	
 	al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
 
@@ -79,7 +80,6 @@ static void calcfps()
 		frames = 0;
 		tock = tick;
 	}
-
 }
 
 int main(int argc, char **argv)
@@ -90,10 +90,9 @@ int main(int argc, char **argv)
 	Entity ent_orbit;
 	const char *filename;
 	Camera cam;
-	Vec3 position = {0, 0, 2e9};
+	Vec3 position = {0, 0, 150e9};
 	Vec3 up =  {0, 1, 0};
 	Vec3 target = {0, 0, 0};
-	bool wireframe = false;
 	Shader *shader_light;
 	Shader *shader_simple;
 	Mesh *mesh;
@@ -109,7 +108,7 @@ int main(int argc, char **argv)
 	mesh = mesh_import(filename);
 	if (mesh == NULL)
 		return 1;
-	for (i = 0; i < mesh->num_vertices; i++)
+	for (i = 0; i < mesh->num_vertices; i++) /* Blow up the teapot */
 	{
 		mesh->vertex[i].x = mesh->vertex[i].x * 7e9;
 		mesh->vertex[i].y = mesh->vertex[i].y * 7e9;
@@ -163,69 +162,15 @@ int main(int argc, char **argv)
 	ent_orbit.position = (Vec3) {0, 0, 0};
 	ent_orbit.orientation = (Quaternion) {1, 0, 0, 0};
 	ent_orbit.num_samples = 1000;
-	ent_orbit.samples = NULL;
+	ent_orbit.sample = NULL;
 	//entity_upload_to_gpu(shader_simple, &ent_orbit);
 
 	/* Transformation matrices */
 	cam_projection_matrix(&cam, glmProjectionMatrix);
 
 	/* Start rendering */
-	while(1)
+	while(handle_input(ev_queue, &cam))
 	{
-		ALLEGRO_EVENT ev;
-		ALLEGRO_MOUSE_STATE state;
-
-		while (al_get_next_event(ev_queue, &ev))
-		{
-			switch (ev.type)
-			{
-			case ALLEGRO_EVENT_DISPLAY_CLOSE:
-				goto out;
-				break;
-			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
-				al_show_mouse_cursor(dpy);
-				al_ungrab_mouse();
-				break;
-			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
-				al_hide_mouse_cursor(dpy);
-				al_grab_mouse(dpy);
-				break;
-			case ALLEGRO_EVENT_MOUSE_AXES:
-				if (ev.mouse.dz != 0)
-					cam_dolly(&cam, ev.mouse.dz);
-				al_get_mouse_state(&state);
-				if (state.buttons & 1)
-					cam_orbit(&cam, ev.mouse.dx, -ev.mouse.dy);
-				else if (state.buttons & 2)
-					cam_rotate(&cam, ev.mouse.dx, -ev.mouse.dy);
-				/* The y coordinate needs to be inverted because OpenGL has
-				 * the origin in the lower-left and Allegro the upper-left */
-				break;
-			case ALLEGRO_EVENT_KEY_CHAR:
-				if (ev.keyboard.unichar == 'w')
-				{
-					wireframe = !wireframe;
-					if (wireframe)
-					{
-						glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-						glDisable(GL_CULL_FACE);
-					}
-					else
-					{
-						glPolygonMode(GL_FRONT, GL_FILL);
-						glEnable(GL_CULL_FACE);
-					}
-				} else if (ev.keyboard.unichar == 'c')
-				{
-					Vec3 upv = quat_transform(cam.orientation, (Vec3){0, 1, 0});
-					cam_lookat(&cam, cam.position, cam.target, upv);
-				}
-				break;
-			default:
-				break;
-			}
-		}
-
 		t += 86400;
 
 		/* Physics stuff */
@@ -258,7 +203,6 @@ int main(int argc, char **argv)
 		calcfps();
 	}
 
-out:
 	free(mesh->name);
 	free(mesh->vertex);
 	free(mesh->normal);

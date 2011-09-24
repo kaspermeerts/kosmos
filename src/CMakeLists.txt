@@ -1,5 +1,5 @@
 set(mathlib_sources vector.c quaternion.c matrix.c)
-set(render_sources render.c shader.c camera.c glm.c mesh.c)
+set(render_sources render.c shader.c camera.c glm.c mesh.c input.c)
 
 find_package(OpenGL REQUIRED)
 find_package(Allegro5 REQUIRED)
