@@ -163,6 +163,9 @@ static bool load_body(ALLEGRO_CONFIG *cfg, const char *fullname, Body *body)
 		body->grav_param = GRAV_CONST * body->mass;
 	}
 
+	if (!config_get_double(cfg, fullname, "Radius", &body->radius, false))
+		return false;
+
 	/* Figure out what kind of object it is */
 	config_get_string(cfg, fullname, "Type", &type, true);
 	if (type == NULL)

@@ -98,8 +98,10 @@ void entity_render(Shader *shader, Entity *ent)
 {
 	glmPushMatrix(&glmModelMatrix);
 
+	glmLoadIdentity(glmModelMatrix);
 	glmMultQuaternion(glmModelMatrix, ent->orientation);
 	glmTranslateVector(glmModelMatrix, ent->position);
+	glmScaleUniform(glmModelMatrix, ent->scale);
 
 	glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX], glmProjectionMatrix);
 	glmUniformMatrix(shader->location[SHADER_UNI_V_MATRIX], glmViewMatrix);

@@ -24,6 +24,7 @@ typedef struct Entity {
 	/* Common stuff */
 	Vec3 position; /* XXX: Maybe make this a different type: Point3 */
 	Quaternion orientation;
+	double scale;
 
 	GLuint vao; /* Vertex Array Object */
 

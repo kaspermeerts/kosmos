@@ -110,9 +110,9 @@ int main(int argc, char **argv)
 		return 1;
 	for (i = 0; i < mesh->num_vertices; i++) /* Blow up the teapot */
 	{
-		mesh->vertex[i].x = mesh->vertex[i].x * 7e9;
-		mesh->vertex[i].y = mesh->vertex[i].y * 7e9;
-		mesh->vertex[i].z = mesh->vertex[i].z * 7e9;
+		mesh->vertex[i].x = mesh->vertex[i].x * 100;
+		mesh->vertex[i].y = mesh->vertex[i].y * 100;
+		mesh->vertex[i].z = mesh->vertex[i].z * 100;
 	}
 
 	cam.fov = M_PI/4;
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 	cam.width = 1024;
 	cam.height = 768;
 	cam.zNear = 1e6;
-	cam.zFar = 4.5e12;
+	cam.zFar = 4.5e15;
 	init_allegro(&cam);
 	cam_lookat(&cam, position, target, up);
 
@@ -189,6 +189,7 @@ int main(int argc, char **argv)
 		for (i = 0; i < solsys->num_bodies; i++)
 		{
 			ent.position = solsys->body[i].position;
+			ent.scale = solsys->body[i].radius;
 			entity_render(shader_light, &ent);
 		}
 

@@ -8,6 +8,7 @@ typedef struct Body {
 	char *name;
 	double mass;
 	double grav_param; /* Gravitational parameter */
+	double radius; /* Equatorial radius */
 
 	Vec3 position; /* Take care to update this before you use it */
 
