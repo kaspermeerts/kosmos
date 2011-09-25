@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <GL/glew.h>
 #include <allegro5/allegro.h>
+#include <ralloc.h>
 
 #define STRINGIFY(s) XSTRINGIFY(s)
 #define XSTRINGIFY(s) #s
@@ -67,7 +68,6 @@ static void calcfps()
 		frames = 0;
 		tock = tick;
 	}
-
 }
 
 int main(int argc, char **argv)
@@ -138,6 +138,7 @@ int main(int argc, char **argv)
 	ent.orientation = q0;
 	ent.type = ENTITY_MESH;
 	ent.mesh = mesh;
+	ent.scale = 1;
 	entity_upload_to_gpu(shader, &ent);
 
 	/* Transformation matrices */
@@ -177,11 +178,7 @@ int main(int argc, char **argv)
 		q = quat_slerp(q0, q1, fabs(fmod(t+1, 2) - 1));
 	}
 
-	free(mesh->name);
-	free(mesh->vertex);
-	free(mesh->normal);
-	free(mesh->index);
-	free(mesh);
+	ralloc_free(mesh);
 
 	shader_delete(shader);
 	glmFreeMatrixStack(glmProjectionMatrix);

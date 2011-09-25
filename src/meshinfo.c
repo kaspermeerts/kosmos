@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ralloc.h>
 
 #include "mesh.h"
 
@@ -32,11 +33,7 @@ int main(int argc, char **argv)
 
 	mesh_print(mesh);
 
-	free(mesh->name);
-	free(mesh->normal);
-	free(mesh->vertex);
-	free(mesh->index);
-	free(mesh);
+	ralloc_free(mesh);
 
 	return 0;
 }

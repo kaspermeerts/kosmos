@@ -4,13 +4,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <allegro5/allegro.h>
+#include <ralloc.h>
 
 #include "log.h"
 #include "solarsystem.h"
-
-/* FIXME: Memory leaks à volonté. First work is using a recursive memory
- * allocator to fix this. */
-extern char *strdup(const char *str); /* FIXME Damnit */
 
 static const char *get_next_config_section(ALLEGRO_CONFIG *cfg,
 		ALLEGRO_CONFIG_SECTION **section)
@@ -131,7 +128,7 @@ static bool config_get_string(ALLEGRO_CONFIG *cfg, const char *sec,
 		return false;
 	}
 
-	*ret = strdup(value);
+	*ret = ralloc_strdup(NULL, value);
 	if (*ret == NULL)
 	{
 		log_err("Out of memory\n");
@@ -141,7 +138,8 @@ static bool config_get_string(ALLEGRO_CONFIG *cfg, const char *sec,
 	return true;
 }
 
-static bool load_body(ALLEGRO_CONFIG *cfg, const char *fullname, Body *body)
+static bool load_body(void *ctx, ALLEGRO_CONFIG *cfg, const char *fullname,
+		Body *body)
 {
 	const char *name;
 	char *type;
@@ -181,8 +179,10 @@ static bool load_body(ALLEGRO_CONFIG *cfg, const char *fullname, Body *body)
 	else
 	{
 		log_err("Unknown type: %s\n", type);
+		ralloc_free(type);
 		return false;
 	}
+	ralloc_free(type);
 
 	/* Does it have a primary or not? 
 	 * Full names are of the form of "Primary/Name"
@@ -190,7 +190,7 @@ static bool load_body(ALLEGRO_CONFIG *cfg, const char *fullname, Body *body)
 	if ((name = strrchr(fullname, '/')) == NULL)
 	{
 		/* This is a body without a primary */
-		body->name = strdup(fullname);
+		body->name = ralloc_strdup(ctx, fullname);
 		body->type = (body->type == BODY_UNKNOWN ? BODY_STAR : body->type);
 		body->primary = NULL;
 		body->primary_name = NULL;
@@ -203,12 +203,10 @@ static bool load_body(ALLEGRO_CONFIG *cfg, const char *fullname, Body *body)
 		/* TODO: Select only the direct primary */
 		const char *primary_name;
 		primary_name = fullname;
-		body->name = strdup(name + 1);
+		body->name = ralloc_strdup(ctx, name + 1);
 		body->type = (body->type == BODY_UNKNOWN ? BODY_PLANET : body->type);
 		body->primary = NULL; /* Fill in later */
-		body->primary_name = malloc(name - primary_name + 1);
-		memcpy(body->primary_name, primary_name, name - primary_name);
-		body->primary_name[name - primary_name] = '\0';
+		body->primary_name = ralloc_strndup(ctx, primary_name, name - primary_name);
 	}
 	
 	body->num_satellites = 0;
@@ -252,7 +250,7 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 	if (num_bodies == 0)
 		return NULL; /* Empty solarsystem */
 
-	solsys = malloc(sizeof(SolarSystem) + num_bodies*sizeof(Body));
+	solsys = ralloc_size(NULL, sizeof(SolarSystem) + num_bodies*sizeof(Body));
 	if (solsys == NULL)
 		return NULL;
 	solsys->num_bodies = num_bodies;
@@ -265,10 +263,10 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 		if (name[0] == '\0')
 			continue;
 
-		if (load_body(cfg, name, &solsys->body[i]) == false)
+		if (load_body(solsys, cfg, name, &solsys->body[i]) == false)
 		{
 			log_err("Couldn't load body %s\n", name);
-			free(solsys);
+			ralloc_free(solsys);
 			return NULL;
 		}
 		i++;
@@ -277,7 +275,7 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 	if (i < num_bodies)
 		log_err("Internal consistency error\n");
 
-	/* Third pass: Connect each body to its primary */
+	/* Third pass: Connect each satellite body to its primary */
 	for (i = 0; i < num_bodies; i++)
 	{
 		Body *body = &solsys->body[i];
@@ -299,17 +297,17 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 		{
 			log_err("Couldn't find %s's primary: %s\n", body->name,
 					body->primary_name);
-			free(solsys);
+			ralloc_free(solsys);
 			return NULL;
 		}
-		free(body->primary_name);
+		ralloc_free(body->primary_name);
 		body->primary_name = NULL; /* Won't ever be used again */
 		/* TODO: Store this primary name elsewhere */
 
 		/* TODO: Could fail */
 		body->primary->num_satellites++;
-		body->primary->satellite = realloc(body->primary->satellite,
-				body->primary->num_satellites*sizeof(Body *));
+		body->primary->satellite = reralloc(solsys, body->primary->satellite,
+				Body *, body->primary->num_satellites);
 		body->primary->satellite[body->primary->num_satellites - 1] = body;
 		
 		body->orbit.epoch = 0;

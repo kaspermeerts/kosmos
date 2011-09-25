@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <GL/gl.h>
+#include <ralloc.h>
 #include <rply.h>
 #include <allegro5/allegro.h>
 
@@ -22,8 +23,6 @@ struct face_types {
 	bool all_quads;
 };
 
-extern char *strdup(const char *s); /* FIXME */
-
 static bool mesh_load_ply(Mesh *mesh, const char *filename);
 static bool mesh_ply_first_pass(Mesh *mesh, p_ply ply);
 static bool mesh_ply_second_pass(Mesh *mesh, p_ply ply);
@@ -38,19 +37,19 @@ Mesh *mesh_import(const char *filename)
 	ALLEGRO_PATH *path;
 	Mesh *mesh;
 
-	if ((mesh = calloc(1, sizeof(Mesh))) == NULL)
+	if ((mesh = ralloc(NULL, Mesh)) == NULL)
 		return NULL;
 
 	/* TODO: Other fileformats */
 	if (mesh_load_ply(mesh, filename) == false)
 	{
 		log_err("Couldn't load model at %s\n", filename);
-		free(mesh);
+		ralloc_free(mesh);
 		return NULL;
 	}
 
 	path = al_create_path(filename);
-	mesh->name = strdup(al_get_path_filename(path));
+	mesh->name = ralloc_strdup(mesh, al_get_path_filename(path));
 	log_dbg("Loaded mesh %s\n", mesh->name);
 	al_destroy_path(path);
 	generate_normals(mesh); /* FIXME: What if we already have normals? */
@@ -117,8 +116,6 @@ static bool mesh_ply_first_pass(Mesh *mesh, p_ply ply)
 		return false;
 	}
 
-	mesh->index = calloc(sizeof(GLuint), mesh->num_indices);
-
 	return true;
 }
 
@@ -132,8 +129,9 @@ static bool mesh_ply_second_pass(Mesh *mesh, p_ply ply)
 	ply_set_read_cb(ply, "vertex", "z", vertex_cb, mesh, (long) PROP_Z);
 	ply_set_read_cb(ply, "face", "vertex_indices", face_cb, mesh, 0);
 
+	mesh->index = ralloc_array(mesh, GLuint, mesh->num_indices);
 	mesh->num_vertices = num_vertices;
-	mesh->vertex = calloc(sizeof(Vertex), mesh->num_vertices);
+	mesh->vertex = ralloc_array(mesh, Vertex, mesh->num_vertices);
 
 	if (ply_read(ply) != 1)
 		return false;
@@ -235,14 +233,8 @@ static void generate_normals(Mesh *mesh)
 	int i;
 
 	/* 1. Initialize all normal sums to zero */
-	normal_record = calloc((size_t) mesh->num_vertices, sizeof(*normal_record));
-	for (i = 0; i < mesh->num_vertices; i++)
-	{
-		normal_record[i].num_faces = 0;
-		normal_record[i].normal_sum.x = 0.0;
-		normal_record[i].normal_sum.y = 0.0;
-		normal_record[i].normal_sum.z = 0.0;
-	}
+	normal_record = rzalloc_array_size(NULL, sizeof(*normal_record),
+			mesh->num_vertices);
 
 	/* 2. Accumulate the normals of each face onto the vertices */
 	for (i = 0; i < mesh->num_indices; i+=3)
@@ -275,7 +267,7 @@ static void generate_normals(Mesh *mesh)
 
 	/* 3. Distribute the normals over the vertices */
 	mesh->num_normals = mesh->num_vertices;
-	mesh->normal = calloc((size_t) mesh->num_normals, sizeof(Normal));
+	mesh->normal = ralloc_array(mesh, Normal, mesh->num_normals);
 	for (i = 0; i < mesh->num_vertices; i++)
 	{
 		double x, y, z, d;
@@ -292,7 +284,7 @@ static void generate_normals(Mesh *mesh)
 		mesh->normal[i].z = (GLfloat) (z / d);
 	}
 
-	free(normal_record);
+	ralloc_free(normal_record);
 }
 
 /* WARNING: despite the name, the returned normal is not yet

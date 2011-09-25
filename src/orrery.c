@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <GL/glew.h>
 #include <allegro5/allegro.h>
+#include <ralloc.h>
 
 #define STRINGIFY(s) XSTRINGIFY(s)
 #define XSTRINGIFY(s) #s
@@ -147,7 +148,7 @@ int main(int argc, char **argv)
 	memcpy(light.specular, light_specular, sizeof(light_specular));
 	light.shininess = shininess;
 
-	glClearColor(100/255., 149/255., 237/255., 1.0);
+	glClearColor(20/255., 30/255., 50/255., 1.0);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
@@ -201,11 +202,8 @@ int main(int argc, char **argv)
 		calcfps();
 	}
 
-	free(mesh->name);
-	free(mesh->vertex);
-	free(mesh->normal);
-	free(mesh->index);
-	free(mesh);
+	ralloc_free(mesh);
+	ralloc_free(solsys);
 
 	shader_delete(shader_light);
 	shader_delete(shader_simple);

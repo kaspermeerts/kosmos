@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <ralloc.h>
 
 #include "solarsystem.h"
 
@@ -31,7 +32,7 @@ int main(int argc, char **argv)
 		printf("\n");
 	}
 
-	free(sol);
+	ralloc_free(sol);
 
 	return 0;
 }	

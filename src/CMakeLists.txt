@@ -25,4 +25,4 @@ add_executable(orrery orrery.c solarsystem.c keplerorbit.c log.c)
 target_link_libraries(orrery MyRender External)
 
 add_executable(sol sol.c solarsystem.c keplerorbit.c log.c)
-target_link_libraries(sol MyMath ${ALLEGRO_LIBRARIES})
+target_link_libraries(sol MyMath ${ALLEGRO_LIBRARIES} External)
