@@ -32,7 +32,6 @@ static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
 static void generate_normals(Mesh *mesh);
 static Normal calc_face_normal(Vertex v1, Vertex v2, Vertex v3);
-static void unitize_mesh(Mesh *mesh);
 
 Mesh *mesh_import(const char *filename)
 {
@@ -55,7 +54,7 @@ Mesh *mesh_import(const char *filename)
 	log_dbg("Loaded mesh %s\n", mesh->name);
 	al_destroy_path(path);
 	generate_normals(mesh); /* FIXME: What if we already have normals? */
-	unitize_mesh(mesh);
+	mesh_unitize(mesh);
 
 	return mesh;
 }
@@ -320,14 +319,14 @@ static Normal calc_face_normal(Vertex p1, Vertex p2, Vertex p3)
 	return n;
 }
 
-static void unitize_mesh(Mesh *mesh)
+void mesh_unitize(Mesh *mesh)
 {
 	int i;
 	GLfloat xmin, ymin, zmin, xmax, ymax, zmax;
 	GLfloat scale;
 
-	xmin = ymin = zmin =  1e37f;
-	xmax = ymax = zmax = -1e37f;
+	xmin = ymin = zmin =  HUGE_VALF;
+	xmax = ymax = zmax = -HUGE_VALF;
 
 	for (i = 0; i < mesh->num_vertices; i++)
 	{

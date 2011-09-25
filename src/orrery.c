@@ -35,7 +35,7 @@ GLfloat shininess = 0.088*128;
 
 SolarSystem *solsys;
 
-double t = 0.0;
+double t = 0;
 
 int init_allegro(Camera *cam)
 {
@@ -137,7 +137,6 @@ int main(int argc, char **argv)
 	if (shader_simple == NULL)
 		return 1;
 	
-
 	glmProjectionMatrix = glmNewMatrixStack();
 	glmViewMatrix = glmNewMatrixStack();
 	glmModelMatrix = glmNewMatrixStack();
@@ -171,13 +170,11 @@ int main(int argc, char **argv)
 	/* Start rendering */
 	while(handle_input(ev_queue, &cam))
 	{
-		t += 86400;
+		t +=0.25* 86400;
 
 		/* Physics stuff */
 		solsys_update(solsys, t);
 		
-		cam_lookat(&cam, cam.position, solsys->body[3].position, up);
-
 		/* Rendering stuff */
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

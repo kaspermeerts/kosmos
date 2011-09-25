@@ -36,5 +36,6 @@ typedef struct Mesh {
 } Mesh;
 
 Mesh *mesh_import(const char *filename);
+void mesh_unitize(Mesh *mesh);
 
 #endif

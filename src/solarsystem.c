@@ -299,12 +299,6 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 				RAD(body->orbit.APe));
 	}
 
-	for (i = 0; i < num_bodies; i++)
-	{
-		Body *b = &solsys->body[i];
-		log_dbg("Body %d: name %s, type %d, primary %s\n", i, b->name, b->type, (b->primary ? b->primary->name : "None"));
-	}
-
 	return solsys;
 }
 
@@ -345,7 +339,6 @@ SolarSystem *solsys_load(const char *filename)
 static void update_body_position(Body *body, double t)
 {
 	Vec3 v; /* Position relative to the primary */
-
 	if (body->primary)
 	{
 		v = kepler_position_at_time(&body->orbit, t);

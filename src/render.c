@@ -35,7 +35,7 @@ static void upload_mesh_to_gpu(Mesh *mesh, Shader *shader)
 	return;
 }
 
-static void upload_orbit_to_gpu(int n, Vec3 *path, Shader *shader)
+static void upload_orbit_to_gpu(int n, Vertex *path, Shader *shader)
 {
 	glGenBuffers(1, &orbit_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, orbit_vbo);
@@ -57,7 +57,7 @@ void entity_upload_to_gpu(Shader *shader, Entity *ent)
 		upload_mesh_to_gpu(ent->mesh, shader);
 		break;
 	case ENTITY_ORBIT:
-		upload_orbit_to_gpu(ent->num_samples, ent->samples, shader);
+		upload_orbit_to_gpu(ent->num_samples, ent->sample, shader);
 		break;
 	default:
 		break;

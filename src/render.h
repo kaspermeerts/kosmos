@@ -31,7 +31,7 @@ typedef struct Entity {
 	Mesh *mesh;
 
 	int num_samples;
-	Vec3 *samples;
+	Vertex *sample;
 } Entity;
 
 void entity_upload_to_gpu(Shader *shader, Entity *ent);
