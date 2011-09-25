@@ -16,6 +16,8 @@ typedef struct Body {
 	KeplerOrbit orbit; /* Optional */
 	char *primary_name;
 	struct Body *primary; /* Parent body */
+	int num_satellites;
+	struct Body **satellite;
 } Body;
 
 typedef struct SolarSystem {

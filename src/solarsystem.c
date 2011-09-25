@@ -12,8 +12,14 @@
  * allocator to fix this. */
 extern char *strdup(const char *str); /* FIXME Damnit */
 
-static bool load_body(ALLEGRO_CONFIG *cfg, const char *sec,	Body *body);
-static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg);
+static const char *get_next_config_section(ALLEGRO_CONFIG *cfg,
+		ALLEGRO_CONFIG_SECTION **section)
+{
+	if (*section == NULL)
+		return al_get_first_config_section(cfg, section);
+	else
+		return al_get_next_config_section(section);
+}
 
 #if 0
 static bool config_get_long(ALLEGRO_CONFIG *cfg, const char *sec,
@@ -140,12 +146,14 @@ static bool load_body(ALLEGRO_CONFIG *cfg, const char *fullname, Body *body)
 	const char *name;
 	char *type;
 
+	/* Just checking */
 	if (al_get_first_config_entry(cfg, fullname, NULL) == NULL)
 	{
 		log_err("Section %s not in file\n", fullname);
 		return false;
 	}
 
+	/* Fill in some common parameters */
 	if (!config_get_double(cfg, fullname, "Mass", &body->mass, false))
 		return false;
 
@@ -173,25 +181,37 @@ static bool load_body(ALLEGRO_CONFIG *cfg, const char *fullname, Body *body)
 		return false;
 	}
 
+	/* Does it have a primary or not? 
+	 * Full names are of the form of "Primary/Name"
+	 * We search backwards to allow for things like "Sol/Earth/Moon" */
 	if ((name = strrchr(fullname, '/')) == NULL)
 	{
+		/* This is a body without a primary */
 		body->name = strdup(fullname);
 		body->type = (body->type == BODY_UNKNOWN ? BODY_STAR : body->type);
 		body->primary = NULL;
 		body->primary_name = NULL;
 	} else if (name == fullname) /* No primary name, eg: sec = "/Earth" */
 	{
-		log_err("Missing primary of %s", fullname);
+		log_err("Malformed name: %s", fullname);
 		return false;
 	} else
 	{
+		/* TODO: Select only the direct primary */
+		const char *primary_name;
+		primary_name = fullname;
 		body->name = strdup(name + 1);
 		body->type = (body->type == BODY_UNKNOWN ? BODY_PLANET : body->type);
-		body->primary_name = malloc(name - fullname + 1);
-		memcpy(body->primary_name, fullname, name - fullname);
-		body->primary_name[name - fullname] = '\0';
+		body->primary = NULL; /* Fill in later */
+		body->primary_name = malloc(name - primary_name + 1);
+		memcpy(body->primary_name, primary_name, name - primary_name);
+		body->primary_name[name - primary_name] = '\0';
 	}
 	
+	body->num_satellites = 0;
+	body->satellite = NULL;
+
+	/* Bodies without primaries can't orbit another body */
 	if (body->primary_name == NULL)
 		return true;
 	
@@ -219,12 +239,11 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 
 	/* First pass: Determine the number of bodies in the file */
 	num_bodies = 0;
-	name = al_get_first_config_section(cfg, &sec);
-	while (name)
+	sec = NULL;
+	while ((name = get_next_config_section(cfg, &sec)) != NULL)
 	{
 		if (name[0] != '\0')
 			num_bodies++;
-		name = al_get_next_config_section(&sec);
 	}
 	
 	if (num_bodies == 0)
@@ -236,32 +255,20 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 	solsys->num_bodies = num_bodies;
 
 	/* Second pass: Load all celestial bodies */
-	if ((name = al_get_first_config_section(cfg, &sec)) == NULL)
+	i = 0;
+	sec = NULL;
+	while ((name = get_next_config_section(cfg, &sec)) != NULL && i < num_bodies)
 	{
-		log_err("Internal consistency error\n");
-		free(solsys);
-		return NULL;
-	}
-
-	i = -1;
-	while (++i < num_bodies && name)
-	{
-		Body *body = &solsys->body[i];
-
 		if (name[0] == '\0')
-		{
-			name = al_get_next_config_section(&sec);
-			i--;
 			continue;
-		}
 
-		if (load_body(cfg, name, body) == false)
+		if (load_body(cfg, name, &solsys->body[i]) == false)
 		{
 			log_err("Couldn't load body %s\n", name);
 			free(solsys);
 			return NULL;
 		}
-		name = al_get_next_config_section(&sec);
+		i++;
 	}
 
 	if (i < num_bodies)
@@ -273,23 +280,34 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 		Body *body = &solsys->body[i];
 		if (body->primary_name == NULL) /* Independent body */
 			continue;
+
+		/* Look for the primary */
+		body->primary = NULL;
 		for (int j = 0; j < num_bodies; j++)
 		{
-			if (strcmp(body->primary_name, solsys->body[j].name) == 0)
+			Body *body2 = &solsys->body[j];
+			if (strcmp(body->primary_name, body2->name) == 0)
 			{
-				body->primary = &solsys->body[j];
+				body->primary = body2;
 				break;
 			}
 		}
-		if (solsys->body[i].primary == NULL)
+		if (body->primary == NULL)
 		{
 			log_err("Couldn't find %s's primary: %s\n", body->name,
 					body->primary_name);
 			free(solsys);
 			return NULL;
 		}
-		free(solsys->body[i].primary_name);
-		solsys->body[i].primary_name = NULL; /* Won't ever be used again */
+		free(body->primary_name);
+		body->primary_name = NULL; /* Won't ever be used again */
+		/* TODO: Store this primary name elsewhere */
+
+		/* TODO: Could fail */
+		body->primary->num_satellites++;
+		body->primary->satellite = realloc(body->primary->satellite,
+				body->primary->num_satellites*sizeof(Body *));
+		body->primary->satellite[body->primary->num_satellites - 1] = body;
 		
 		body->orbit.epoch = 0;
 		body->orbit.period = M_TWO_PI *
@@ -336,17 +354,13 @@ SolarSystem *solsys_load(const char *filename)
 	return ret;
 }
 
-static void update_body_position(Body *body, double t)
+static void update_satellites(Body *body, double t)
 {
-	Vec3 v; /* Position relative to the primary */
-	if (body->primary)
+	for (int i = 0; i < body->num_satellites; i++)
 	{
-		v = kepler_position_at_time(&body->orbit, t);
-		update_body_position(body->primary, t);
-		body->position = vec3_add(body->primary->position, v);
-	} else
-	{
-		body->position = (Vec3) {0, 0, 0};
+		Vec3 v = kepler_position_at_time(&body->satellite[i]->orbit, t);
+		body->satellite[i]->position = vec3_add(body->position, v);
+		update_satellites(body->satellite[i], t);
 	}
 		
 	return;
@@ -357,6 +371,12 @@ void solsys_update(SolarSystem *solsys, double t)
 	int i;
 
 	for (i = 0; i < solsys->num_bodies; i++)
-		update_body_position(&solsys->body[i], t);
+	{
+		if (solsys->body[i].primary == NULL)
+		{
+			solsys->body[i].position = (Vec3) {0, 0, 0};
+			update_satellites(&solsys->body[i], t);
+		}
+	}
 }
 		
