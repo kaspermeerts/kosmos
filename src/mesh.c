@@ -30,7 +30,8 @@ static int tesselate_cb(p_ply_argument argument);
 static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
 static void generate_normals(Mesh *mesh);
-static Normal calc_face_normal(Vertex v1, Vertex v2, Vertex v3);
+static Normal calc_tri_normal(Vertex v1, Vertex v2, Vertex v3);
+static Normal calc_quad_normal(Vertex v1, Vertex v2, Vertex v3, Vertex v4);
 
 Mesh *mesh_import(const char *filename)
 {
@@ -222,8 +223,7 @@ static int face_cb(p_ply_argument argument)
 	return 1;
 }
 
-/* Generate normals for a mesh based on the faces.
- * We assume all faces are triangles here. */
+/* Generate normals based on the geometry of the mesh. */
 static void generate_normals(Mesh *mesh)
 {
 	struct {
@@ -237,32 +237,71 @@ static void generate_normals(Mesh *mesh)
 			mesh->num_vertices);
 
 	/* 2. Accumulate the normals of each face onto the vertices */
-	for (i = 0; i < mesh->num_indices; i+=3)
+	if (mesh->type == GL_TRIANGLES)
 	{
-		Normal normal;
-		GLuint i1, i2, i3;
+		for (i = 0; i < mesh->num_indices; i+=3)
+		{
+			Normal normal;
+			GLuint i1, i2, i3;
 
-		i1 = mesh->index[i + 0];
-		i2 = mesh->index[i + 1];
-		i3 = mesh->index[i + 2];
+			i1 = mesh->index[i + 0];
+			i2 = mesh->index[i + 1];
+			i3 = mesh->index[i + 2];
 
-		normal = calc_face_normal(mesh->vertex[i1], mesh->vertex[i2], 
-				mesh->vertex[i3]);
+			normal = calc_tri_normal(mesh->vertex[i1], mesh->vertex[i2], 
+					mesh->vertex[i3]);
 
-		normal_record[i1].normal_sum.x += normal.x;
-		normal_record[i1].normal_sum.y += normal.y;
-		normal_record[i1].normal_sum.z += normal.z;
-		normal_record[i1].num_faces++;
+			normal_record[i1].normal_sum.x += normal.x;
+			normal_record[i1].normal_sum.y += normal.y;
+			normal_record[i1].normal_sum.z += normal.z;
+			normal_record[i1].num_faces++;
 
-		normal_record[i2].normal_sum.x += normal.x;
-		normal_record[i2].normal_sum.y += normal.y;
-		normal_record[i2].normal_sum.z += normal.z;
-		normal_record[i2].num_faces++;
+			normal_record[i2].normal_sum.x += normal.x;
+			normal_record[i2].normal_sum.y += normal.y;
+			normal_record[i2].normal_sum.z += normal.z;
+			normal_record[i2].num_faces++;
 
-		normal_record[i3].normal_sum.x += normal.x;
-		normal_record[i3].normal_sum.y += normal.y;
-		normal_record[i3].normal_sum.z += normal.z;
-		normal_record[i3].num_faces++;
+			normal_record[i3].normal_sum.x += normal.x;
+			normal_record[i3].normal_sum.y += normal.y;
+			normal_record[i3].normal_sum.z += normal.z;
+			normal_record[i3].num_faces++;
+		}
+	}
+	else if (mesh->type == GL_QUADS)
+	{
+		for (i = 0; i < mesh->num_indices; i+=4)
+		{
+			Normal normal;
+			GLuint i1, i2, i3, i4;
+
+			i1 = mesh->index[i + 0];
+			i2 = mesh->index[i + 1];
+			i3 = mesh->index[i + 2];
+			i4 = mesh->index[i + 3];
+
+			normal = calc_quad_normal(mesh->vertex[i1], mesh->vertex[i2], 
+					mesh->vertex[i3], mesh->vertex[i4]);
+
+			normal_record[i1].normal_sum.x += normal.x;
+			normal_record[i1].normal_sum.y += normal.y;
+			normal_record[i1].normal_sum.z += normal.z;
+			normal_record[i1].num_faces++;
+
+			normal_record[i2].normal_sum.x += normal.x;
+			normal_record[i2].normal_sum.y += normal.y;
+			normal_record[i2].normal_sum.z += normal.z;
+			normal_record[i2].num_faces++;
+
+			normal_record[i3].normal_sum.x += normal.x;
+			normal_record[i3].normal_sum.y += normal.y;
+			normal_record[i3].normal_sum.z += normal.z;
+			normal_record[i3].num_faces++;
+
+			normal_record[i4].normal_sum.x += normal.x;
+			normal_record[i4].normal_sum.y += normal.y;
+			normal_record[i4].normal_sum.z += normal.z;
+			normal_record[i4].num_faces++;
+		}
 	}
 
 	/* 3. Distribute the normals over the vertices */
@@ -289,7 +328,7 @@ static void generate_normals(Mesh *mesh)
 
 /* WARNING: despite the name, the returned normal is not yet
  * normalized */
-static Normal calc_face_normal(Vertex p1, Vertex p2, Vertex p3)
+static Normal calc_tri_normal(Vertex p1, Vertex p2, Vertex p3)
 {
 	Vec3 v1, v2, v3;
 	Normal n;
@@ -301,6 +340,28 @@ static Normal calc_face_normal(Vertex p1, Vertex p2, Vertex p3)
 	v2.x = p3.x - p1.x;
 	v2.y = p3.y - p1.y;
 	v2.z = p3.z - p1.z;
+
+	v3 = vec3_cross(v1, v2);
+
+	n.x = (GLfloat) v3.x;
+	n.y = (GLfloat) v3.y;
+	n.z = (GLfloat) v3.z;
+
+	return n;
+}
+
+static Normal calc_quad_normal(Vertex p1, Vertex p2, Vertex p3, Vertex p4)
+{
+	Vec3 v1, v2, v3;
+	Normal n;
+
+	v1.x = p3.x - p1.x;
+	v1.y = p3.y - p1.y;
+	v1.z = p3.z - p1.z;
+
+	v2.x = p4.x - p2.x;
+	v2.y = p4.y - p2.y;
+	v2.z = p4.z - p2.z;
 
 	v3 = vec3_cross(v1, v2);
 

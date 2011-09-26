@@ -4,19 +4,8 @@
 
 #include "mesh.h"
 
-static void mesh_print(Mesh *mesh);
-
-static void mesh_print(Mesh *mesh)
-{
-	printf("Mesh %s\n", mesh->name);
-	printf("%d Vertices\n", mesh->num_vertices);
-	printf("%d Normals\n", mesh->num_normals);
-	printf("%d Triangles\n", mesh->num_indices / 3);
-}
-
 int main(int argc, char **argv)
 {
-	const char *filename;
 	Mesh *mesh;
 	
 	if (argc < 2)
@@ -25,13 +14,16 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	filename = argv[1];
-
-	mesh = mesh_import(filename);
+	mesh = mesh_import(argv[1]);
 	if (mesh == NULL)
 		return 1;
 
-	mesh_print(mesh);
+	printf("Mesh %s\n", mesh->name);
+	printf("%d Vertices\n", mesh->num_vertices);
+	printf("%d Normals\n", mesh->num_normals);
+	printf("%d Triangles\n", mesh->num_indices / 3);
+	printf("%d\n", mesh->type);
+
 
 	ralloc_free(mesh);
 
