@@ -139,7 +139,7 @@ static bool config_get_string(ALLEGRO_CONFIG *cfg, const char *sec,
 }
 
 static bool load_body(void *ctx, ALLEGRO_CONFIG *cfg, const char *fullname,
-		Body *body)
+		Body *body, char **primary_name)
 {
 	const char *name;
 	char *type;
@@ -193,27 +193,28 @@ static bool load_body(void *ctx, ALLEGRO_CONFIG *cfg, const char *fullname,
 		body->name = ralloc_strdup(ctx, fullname);
 		body->type = (body->type == BODY_UNKNOWN ? BODY_STAR : body->type);
 		body->primary = NULL;
-		body->primary_name = NULL;
+		*primary_name = NULL;
 	} else if (name == fullname) /* No primary name, eg: sec = "/Earth" */
 	{
 		log_err("Malformed name: %s", fullname);
 		return false;
 	} else
 	{
-		/* TODO: Select only the direct primary */
-		const char *primary_name;
-		primary_name = fullname;
+		const char *c;
+		for (c = name - 1; c >= fullname && *c != '/'; c--);
+		c++;
+			
 		body->name = ralloc_strdup(ctx, name + 1);
 		body->type = (body->type == BODY_UNKNOWN ? BODY_PLANET : body->type);
 		body->primary = NULL; /* Fill in later */
-		body->primary_name = ralloc_strndup(ctx, primary_name, name - primary_name);
+		*primary_name = ralloc_strndup(ctx, c, name - c);
 	}
 	
 	body->num_satellites = 0;
 	body->satellite = NULL;
 
 	/* Bodies without primaries can't orbit another body */
-	if (body->primary_name == NULL)
+	if (*primary_name == NULL)
 		return true;
 	
 	if (!config_get_double(cfg, fullname, "Ecc", &body->orbit.Ecc, false) ||
@@ -233,6 +234,7 @@ static bool load_body(void *ctx, ALLEGRO_CONFIG *cfg, const char *fullname,
 static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 {
 	SolarSystem *solsys;
+	char **primary_names;
 	const char *name;
 	long num_bodies;
 	ALLEGRO_CONFIG_SECTION *sec;
@@ -254,6 +256,12 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 	if (solsys == NULL)
 		return NULL;
 	solsys->num_bodies = num_bodies;
+	primary_names = ralloc_array(solsys, char *, num_bodies);
+	if (primary_names == NULL)
+	{
+		ralloc_free(solsys);
+		return NULL;
+	}
 
 	/* Second pass: Load all celestial bodies */
 	i = 0;
@@ -263,7 +271,7 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 		if (name[0] == '\0')
 			continue;
 
-		if (load_body(solsys, cfg, name, &solsys->body[i]) == false)
+		if (!load_body(solsys, cfg, name, &solsys->body[i], &primary_names[i]))
 		{
 			log_err("Couldn't load body %s\n", name);
 			ralloc_free(solsys);
@@ -279,7 +287,8 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 	for (i = 0; i < num_bodies; i++)
 	{
 		Body *body = &solsys->body[i];
-		if (body->primary_name == NULL) /* Independent body */
+		char *primary_name = primary_names[i];
+		if (primary_name == NULL) /* Independent body */
 			continue;
 
 		/* Look for the primary */
@@ -287,7 +296,7 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 		for (int j = 0; j < num_bodies; j++)
 		{
 			Body *body2 = &solsys->body[j];
-			if (strcmp(body->primary_name, body2->name) == 0)
+			if (strcmp(primary_name, body2->name) == 0)
 			{
 				body->primary = body2;
 				break;
@@ -296,18 +305,22 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 		if (body->primary == NULL)
 		{
 			log_err("Couldn't find %s's primary: %s\n", body->name,
-					body->primary_name);
+					primary_name);
 			ralloc_free(solsys);
 			return NULL;
 		}
-		ralloc_free(body->primary_name);
-		body->primary_name = NULL; /* Won't ever be used again */
-		/* TODO: Store this primary name elsewhere */
+		ralloc_free(primary_name);
+		primary_name = NULL; /* Won't ever be used again */
 
-		/* TODO: Could fail */
 		body->primary->num_satellites++;
 		body->primary->satellite = reralloc(solsys, body->primary->satellite,
 				Body *, body->primary->num_satellites);
+		if (body->primary->satellite == NULL)
+		{
+			log_err("Out of memory\n");
+			ralloc_free(solsys);
+			return NULL;
+		}
 		body->primary->satellite[body->primary->num_satellites - 1] = body;
 		
 		body->orbit.epoch = 0;
@@ -318,6 +331,7 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 				RAD(body->orbit.APe));
 	}
 
+	ralloc_free(primary_names);
 	return solsys;
 }
 

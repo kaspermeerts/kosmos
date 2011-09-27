@@ -7,9 +7,23 @@
 #define XSTRINGIFY(s) #s
 #define STRINGIFY(x) XSTRINGIFY(x)
 
+static void print_satellites(int level, Body *body)
+{
+	int i, j;
+
+	for (i = 0; i < body->num_satellites; i++)
+	{
+		for (j = 0; j < level; j++)
+			printf("    ");
+		printf("%s\n", body->satellite[i]->name);
+		print_satellites(level + 1, body->satellite[i]);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	SolarSystem *sol;
+	Body *center;
 	const char *filename;
 
 	if (argc < 2)
@@ -22,15 +36,11 @@ int main(int argc, char **argv)
 		return 1;
 	
 	for (int i = 0; i < sol->num_bodies; i++)
-	{
-		Body *body = &sol->body[i];
-		printf("Name: %s\n", body->name);
-		printf("Primary: %s\n", body->primary ? body->primary->name : "(none)");
-		printf("%d satellites:\n", body->num_satellites);
-		for (int j = 0; j < body->num_satellites; j++)
-			printf("%s\n", body->satellite[j]->name);
-		printf("\n");
-	}
+		if (sol->body[i].primary == NULL)
+			center = &sol->body[i];
+	
+	printf("%s\n", center->name);
+	print_satellites(1, center);
 
 	ralloc_free(sol);
 

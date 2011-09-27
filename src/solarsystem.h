@@ -15,7 +15,6 @@ typedef struct Body {
 	enum { BODY_STAR, BODY_PLANET, BODY_COMET, BODY_UNKNOWN } type;
 
 	KeplerOrbit orbit; /* Optional */
-	char *primary_name;
 	struct Body *primary; /* Parent body */
 	int num_satellites;
 	struct Body **satellite;
