@@ -74,6 +74,10 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 			glGetAttribLocation(shader->program, "in_position");
 	shader->location[SHADER_ATT_NORMAL] =
 			glGetAttribLocation(shader->program, "in_normal");
+	shader->location[SHADER_ATT_TEXCOORD] =
+			glGetAttribLocation(shader->program, "in_texcoord");
+	shader->location[SHADER_UNI_FONT_TEXTURE] =
+			glGetUniformLocation(shader->program, "font_texture");
 	shader->location[SHADER_UNI_M_MATRIX] =
 			glGetUniformLocation(shader->program, "model_matrix");
 	shader->location[SHADER_UNI_V_MATRIX] =

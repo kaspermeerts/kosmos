@@ -1076,7 +1076,7 @@ static void ply_init(p_ply ply) {
     ply->nobj_infos = 0;
     ply->idriver = NULL;
     ply->odriver = NULL;
-	memset(ply->buffer, '\0', sizeof(ply->buffer));
+	ply->buffer[0] = '\0';
     ply->buffer_first = ply->buffer_last = ply->buffer_token = 0;
     ply->welement = 0;
     ply->wproperty = 0;

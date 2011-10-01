@@ -1,12 +1,14 @@
 set(mathlib_sources vector.c quaternion.c matrix.c)
 set(render_sources render.c shader.c camera.c glm.c mesh.c input.c)
 
+find_package(FreeType REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(Allegro5 REQUIRED)
 find_package(GLEW REQUIRED)
 set(render_includes ${OPENGL_INCLUDE_DIR} ${ALLEGRO_INCLUDE_DIR}
-		${GLEW_INCLUDE_PATH})
-set(render_libs ${OPENGL_LIBRARIES} ${ALLEGRO_LIBRARIES} ${GLEW_LIBRARY})
+		${GLEW_INCLUDE_PATH} ${FREETYPE_INCLUDE_DIR})
+set(render_libs ${OPENGL_LIBRARIES} ${ALLEGRO_LIBRARIES} ${GLEW_LIBRARY}
+${FREETYPE_LIBRARIES})
 
 include_directories(${render_includes})
 
@@ -26,3 +28,6 @@ target_link_libraries(orrery MyRender External)
 
 add_executable(sol sol.c solarsystem.c keplerorbit.c log.c)
 target_link_libraries(sol MyMath ${ALLEGRO_LIBRARIES} External)
+
+add_executable(testfont testfont.c font.c log.c ${RENDER_SOURCES})
+target_link_libraries(testfont External MyRender)
