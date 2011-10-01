@@ -7,10 +7,6 @@
 
 #include "shader.h"
 
-typedef struct Colour {
-	GLubyte r, g, b, a;
-} Colour;
-
 typedef struct Font {
 	FT_Face face;
 	int size;
@@ -34,7 +30,9 @@ typedef struct Text {
 } Text;
 
 Font *font_load(const char *filename, int size);
+void font_destroy(Font *font);
 Text *text_create(Font *font, const char *text, int x, int y);
 void text_upload_to_gpu(Shader *shader, Text *text);
 void text_render(Shader *shader, Text *text);
+void text_destroy(Text *text);
 #endif

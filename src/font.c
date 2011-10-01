@@ -12,9 +12,13 @@
 #include "log.h"
 #include "shader.h"
 
-/* TODO: Check ralloc return value */
-
 static FT_Library fontlib = NULL;
+
+static void fontlib_destroy(void)
+{
+	if (fontlib)
+		FT_Done_FreeType(fontlib);
+}
 
 Font *font_load(const char *filename, int size)
 {
@@ -27,6 +31,7 @@ Font *font_load(const char *filename, int size)
 			log_err("Error initializing FreeType 2\n");
 			return NULL;
 		}
+		atexit(fontlib_destroy);
 	}
 	if ((font = ralloc(NULL, Font)) == NULL)
 	{
@@ -43,6 +48,12 @@ Font *font_load(const char *filename, int size)
 	log_dbg("Loaded font with %ld glyphs\n", font->face->num_glyphs);
 
 	return font;
+}
+
+void font_destroy(Font *font)
+{
+	FT_Done_Face(font->face);
+	ralloc_free(font);
 }
 
 static void compute_glyphstring_bbox(FT_Glyph *string, FT_Vector *pos, 
@@ -139,11 +150,13 @@ static void print_bitmap(unsigned char *buffer, int pitch, int height)
 
 Text *text_create(Font *font, const char *string, int x, int y)
 {
+	FT_Bool has_kerning;
 	FT_Face face = font->face;
 	FT_ULong charcode;
 	FT_Glyph *glyph_string;
 	FT_Vector *pos, pen;
 	FT_BBox bbox;
+	FT_UInt previous;
 	Text *text;
 	FT_Long width, height;
 	unsigned int glyph_index, i;
@@ -153,20 +166,45 @@ Text *text_create(Font *font, const char *string, int x, int y)
 		log_err("Error setting character size\n");
 		return NULL;
 	}
+	has_kerning = FT_HAS_KERNING(face);
 
 	text = ralloc(font, Text);
+	if (text == NULL)
+	{
+		log_err("Out of memory\n");
+		return NULL;
+	}
+	text->vao = text->vbo = text->texture = 0;
+	text->texture_image = NULL;
 	text->string = ralloc_strdup(text, string);
 	text->length = strlen(string);
 	glyph_string = ralloc_array(text, FT_Glyph, text->length);
 	pos = ralloc_array(text, FT_Vector, text->length);
+	if (text->string == NULL || glyph_string == NULL || pos == NULL)
+	{
+		log_err("Out of memory\n");
+		ralloc_free(text);
+		return NULL;
+	}
 
 	/* First, we determine how big the text will be. This information is used
 	 * to determine the size of the texture we'll store the text in */
 	pen.x = pen.y = 0;
+	previous = 0;
 	for (i = 0; i < text->length; i++)
 	{
+		/* TODO: Convert this correctly to UTF-32
+		 * We need Cyrillic for спутник or союз */
 		charcode = *(unsigned char *)&string[i];
 		glyph_index = FT_Get_Char_Index(face, charcode);
+		if (has_kerning && previous && glyph_index)
+		{
+			FT_Vector delta;
+
+			FT_Get_Kerning(face, previous, glyph_index, FT_KERNING_DEFAULT,
+					&delta);
+			pen.x += delta.x;
+		}
 
 		if (FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER) != 0)
 		{
@@ -177,6 +215,7 @@ Text *text_create(Font *font, const char *string, int x, int y)
 		if (FT_Get_Glyph(face->glyph, &glyph_string[i]) != 0)
 		{
 			log_err("Error getting glyph for character '%c'\n", string[i]);
+			ralloc_free(text);
 			return NULL;
 		}
 		
@@ -184,6 +223,8 @@ Text *text_create(Font *font, const char *string, int x, int y)
 
 		pen.x += face->glyph->advance.x;
 		pen.y += face->glyph->advance.y;
+
+		previous = glyph_index;
 	}
 
 	compute_glyphstring_bbox(glyph_string, pos, text->length, &bbox);
@@ -193,6 +234,14 @@ Text *text_create(Font *font, const char *string, int x, int y)
 	text->height = height/64;
 	text->texture_image = rzalloc_array(text, GLubyte,
 			text->width * text->height);
+	if (text->texture_image == NULL)
+	{
+		log_err("Out of memory\n");
+		for (i = 0; i < text->length; i++)
+			FT_Done_Glyph(glyph_string[i]);
+		ralloc_free(text);
+		return NULL;
+	}
 	/* Now we can render the text to a texture */
 	for (i = 0; i < text->length; i++)
 	{
@@ -203,21 +252,25 @@ Text *text_create(Font *font, const char *string, int x, int y)
 		pen.x = pos[i].x;
 		pen.y = pos[i].y;
 
-		if (FT_Glyph_To_Bitmap(&glyph, FT_LOAD_TARGET_LCD, &pen, 0) != 0)
+		/* Render the new glyph and destroy the old one */
+		if (FT_Glyph_To_Bitmap(&glyph, FT_LOAD_TARGET_NORMAL, &pen, 1) != 0)
 		{
 			log_err("Error rendering glyph to bitmap for character '%c'\n",
 					string[i]);
-			return NULL;
+			FT_Done_Glyph(glyph_string[i]);
+			continue;
 		}
 
 		bitmap_glyph = (FT_BitmapGlyph) glyph;
-		blit_glyph(bitmap_glyph, text->texture_image,
-				(pen.x - bbox.xMin)/64, (pen.y - bbox.yMin)/64, text->width, text->height);
+		blit_glyph(bitmap_glyph, text->texture_image, (pen.x - bbox.xMin)/64,
+				(pen.y - bbox.yMin)/64, text->width, text->height);
 		FT_Done_Glyph(glyph);
 	}
+	ralloc_free(glyph_string);
+	ralloc_free(pos);
 
 	/* We assume the given coordinates are those of the baseline. Because a g or
-	 * a q go under this line, we translate the text a little bit down.
+	 * a q goes under this line, we translate the text a little bit down.
 	 * This is necessary to keep a consistent interlinear distance */
 	x += bbox.xMin/64;
 	y += bbox.yMin/64;
@@ -280,6 +333,8 @@ void text_upload_to_gpu(Shader *shader, Text *text)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	
 	glBindTexture(GL_TEXTURE_2D, 0);
+
+	ralloc_free(text->texture_image);
 }
 
 void text_render(Shader *shader, Text *text)
@@ -291,4 +346,13 @@ void text_render(Shader *shader, Text *text)
 	glDrawArrays(GL_QUADS, 0, text->num_vertices);
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void text_destroy(Text *text)
+{
+	glDeleteVertexArrays(1, &text->vao);
+	glDeleteBuffers(1, &text->vbo);
+	glDeleteTextures(1, &text->texture);
+
+	ralloc_free(text);
 }

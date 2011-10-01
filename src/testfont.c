@@ -47,10 +47,10 @@ int main(int argc, char **argv)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	font = font_load(STRINGIFY(ROOT_PATH) "/data/DejaVuLGCSans.ttf", 12);
+	font = font_load(STRINGIFY(ROOT_PATH) "/data/DejaVuLGCSans.ttf", 16);
 	if (font == NULL)
 		return 1;
-	text = text_create(font, string, 200, 200);
+	text = text_create(font, string, 20, 20);
 
 	text_upload_to_gpu(shader, text);
 
@@ -66,6 +66,9 @@ int main(int argc, char **argv)
 		text_render(shader, text);
 		al_flip_display();
 	}
+	
+	text_destroy(text);
+	font_destroy(font);
 
 	return 0;
 }
