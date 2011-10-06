@@ -1,5 +1,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <ralloc.h>
 #include <GL/glew.h>
@@ -148,7 +149,59 @@ static void print_bitmap(unsigned char *buffer, int pitch, int height)
 }
 #endif
 
-Text *text_create(Font *font, const char *string, int x, int y)
+static const unsigned int utf8_tail_length[256] = {
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x0F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x1F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x2F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x3F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x4F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x5F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x6F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x7F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x8F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x9F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xAF */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xBF */
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /* 0xCF */
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /* 0xDF */
+2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, /* 0xEF */
+3,3,3,3,3,3,3,3,4,4,4,4,5,5,0,0, /* 0xFF */
+};
+
+static uint32_t utf8_next(const uint8_t **s)
+{
+	uint32_t c;
+	int i, tail_len;
+
+	/* Start with the first byte */
+	c = (*s)[0];
+	(*s)++;
+
+	/* Return early if it's plain ASCII */
+	if (c < 0x80)
+		return c;
+
+	/* Store the first 1-6 bits */
+	tail_len = utf8_tail_length[c & 0xff];
+	c &= (0x3f >> tail_len);
+
+	/* Main decoding loop */
+	for (i = 0; i < tail_len; i++)
+	{
+		if ((*s)[i] == '\0' || ((*s)[i] & 0xc0) != 0x80)
+			break; /* End of string or invalid continuation byte */
+
+		c = (c << 6) + ((*s)[i] & 0x3f);
+	}
+
+	*s += i;
+	if (i != tail_len)
+		return 0xFFFD; /* Replacement character � */
+
+	return c;
+}
+
+Text *text_create(Font *font, const uint8_t *string)
 {
 	FT_Bool has_kerning;
 	FT_Face face = font->face;
@@ -159,7 +212,9 @@ Text *text_create(Font *font, const char *string, int x, int y)
 	FT_UInt previous;
 	Text *text;
 	FT_Long width, height;
-	unsigned int glyph_index, i;
+	unsigned int glyph_index, i, num_glyphs;
+	size_t len;
+	float x, y;
 
 	if (FT_Set_Char_Size(face, 0, font->size*64, 76, 76) != 0)
 	{
@@ -176,10 +231,10 @@ Text *text_create(Font *font, const char *string, int x, int y)
 	}
 	text->vao = text->vbo = text->texture = 0;
 	text->texture_image = NULL;
-	text->string = ralloc_strdup(text, string);
-	text->length = strlen(string);
-	glyph_string = ralloc_array(text, FT_Glyph, text->length);
-	pos = ralloc_array(text, FT_Vector, text->length);
+	text->string = ralloc_strdup(text, (const char *) string);
+	len = strlen((const char *) string); /* Bytecount */
+	glyph_string = ralloc_array(text, FT_Glyph, len);
+	pos = ralloc_array(text, FT_Vector, len);
 	if (text->string == NULL || glyph_string == NULL || pos == NULL)
 	{
 		log_err("Out of memory\n");
@@ -191,11 +246,11 @@ Text *text_create(Font *font, const char *string, int x, int y)
 	 * to determine the size of the texture we'll store the text in */
 	pen.x = pen.y = 0;
 	previous = 0;
-	for (i = 0; i < text->length; i++)
+	num_glyphs = 0;
+	i = 0;
+	while (string[0] != '\0')
 	{
-		/* TODO: Convert this correctly to UTF-32
-		 * We need Cyrillic for спутник or союз */
-		charcode = *(unsigned char *)&string[i];
+		charcode = utf8_next(&string);
 		glyph_index = FT_Get_Char_Index(face, charcode);
 		if (has_kerning && previous && glyph_index)
 		{
@@ -225,8 +280,11 @@ Text *text_create(Font *font, const char *string, int x, int y)
 		pen.y += face->glyph->advance.y;
 
 		previous = glyph_index;
+		i++;
 	}
 
+	text->length = i;
+	log_err("%u\n", i);
 	compute_glyphstring_bbox(glyph_string, pos, text->length, &bbox);
 	width  = bbox.xMax - bbox.xMin;
 	height = bbox.yMax - bbox.yMin;
@@ -269,11 +327,8 @@ Text *text_create(Font *font, const char *string, int x, int y)
 	ralloc_free(glyph_string);
 	ralloc_free(pos);
 
-	/* We assume the given coordinates are those of the baseline. Because a g or
-	 * a q goes under this line, we translate the text a little bit down.
-	 * This is necessary to keep a consistent interlinear distance */
-	x += bbox.xMin/64;
-	y += bbox.yMin/64;
+	x = bbox.xMin/64;
+	y = bbox.yMin/64;
 
 	/* Why do we add text->width and not bbox.xMax? Because OpenGL wants
 	 * textures aligned at 4 bytes. This fixes a very subtle bug with 
@@ -337,10 +392,16 @@ void text_upload_to_gpu(Shader *shader, Text *text)
 	ralloc_free(text->texture_image);
 }
 
-void text_render(Shader *shader, Text *text)
+void text_render(Shader *shader, Text *text, int x, int y)
 {
-	shader = shader;
+	glUniform1i(glGetUniformLocation(shader->program, "text_texture"),
+		0);
+	glUniform3f(glGetUniformLocation(shader->program, "text_colour"),
+		0, 0, 1);
+	glUniform2i(glGetUniformLocation(shader->program, "text_location"),
+		x, y);
 
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, text->texture);
 	glBindVertexArray(text->vao);
 	glDrawArrays(GL_QUADS, 0, text->num_vertices);

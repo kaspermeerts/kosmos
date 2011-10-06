@@ -31,8 +31,8 @@ typedef struct Text {
 
 Font *font_load(const char *filename, int size);
 void font_destroy(Font *font);
-Text *text_create(Font *font, const char *text, int x, int y);
+Text *text_create(Font *font, const uint8_t *text);
 void text_upload_to_gpu(Shader *shader, Text *text);
-void text_render(Shader *shader, Text *text);
+void text_render(Shader *shader, Text *text, int x, int y);
 void text_destroy(Text *text);
 #endif
