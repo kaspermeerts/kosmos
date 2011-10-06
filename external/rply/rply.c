@@ -22,7 +22,7 @@
  * Make sure we get our integer types right
  * ---------------------------------------------------------------------- */
 #ifdef _MSC_VER
-/* We are in 2006, and some compilers still fail to define C99 types! */
+/* We are in 2010, and some compilers still fail to define C99 types! */
 typedef __int8 t_ply_int8;
 typedef __int16 t_ply_int16;
 typedef __int32 t_ply_int32;
@@ -321,12 +321,6 @@ static int BREFILL(p_ply ply) {
     return 1;
 }
 
-/* ----------------------------------------------------------------------
- * Exported functions
- * ---------------------------------------------------------------------- */
-/* ----------------------------------------------------------------------
- * Read support functions
- * ---------------------------------------------------------------------- */
 /* We don't care about end-of-line, generally, because we
  * separate words by any white-space character.
  * Unfortunately, in binary mode, right after 'end_header', 
@@ -352,6 +346,12 @@ static int ply_read_header_magic(p_ply ply) {
     return 1;
 }
 
+/* ----------------------------------------------------------------------
+ * Exported functions
+ * ---------------------------------------------------------------------- */
+/* ----------------------------------------------------------------------
+ * Read support functions
+ * ---------------------------------------------------------------------- */
 p_ply ply_open(const char *name, p_ply_error_cb error_cb, 
         long idata, void *pdata) {
     FILE *fp = NULL; 
@@ -774,6 +774,14 @@ double ply_get_argument_value(p_ply_argument argument) {
     return argument->value;
 }
 
+int ply_get_ply_user_data(p_ply ply, void **pdata, long *idata) {
+    assert(ply);
+    if (!ply) return 0;
+    if (pdata) *pdata = ply->pdata;
+    if (idata) *idata = ply->idata;
+    return 1;
+}
+
 /* ----------------------------------------------------------------------
  * Internal functions
  * ---------------------------------------------------------------------- */
@@ -1076,7 +1084,7 @@ static void ply_init(p_ply ply) {
     ply->nobj_infos = 0;
     ply->idriver = NULL;
     ply->odriver = NULL;
-	ply->buffer[0] = '\0';
+    ply->buffer[0] = '\0';
     ply->buffer_first = ply->buffer_last = ply->buffer_token = 0;
     ply->welement = 0;
     ply->wproperty = 0;
@@ -1103,7 +1111,7 @@ static void ply_property_init(p_ply_property property) {
 }
 
 static p_ply ply_alloc(void) {
-    p_ply ply = (p_ply) malloc(sizeof(t_ply));
+    p_ply ply = (p_ply) calloc(1, sizeof(t_ply));
     if (!ply) return NULL;
     ply_init(ply);
     return ply;
