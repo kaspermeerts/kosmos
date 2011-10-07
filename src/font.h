@@ -9,13 +9,13 @@
 
 typedef struct Font {
 	FT_Face face;
-	int size;
 } Font;
 
 typedef struct Text {
-	const char *string;
-	size_t length;
+	uint8_t *string; /* UTF-8 string */
+	int num_glyphs;
 	Font *font;
+	int size;
 	GLuint vao;
 	GLuint vbo;
 	GLuint texture;
@@ -27,11 +27,12 @@ typedef struct Text {
 	int width;
 	int height;
 	GLubyte *texture_image;
+	GLfloat colour[3];
 } Text;
 
-Font *font_load(const char *filename, int size);
+Font *font_load(const char *filename);
 void font_destroy(Font *font);
-Text *text_create(Font *font, const uint8_t *text);
+Text *text_create(Font *font, const uint8_t *text, int size);
 void text_upload_to_gpu(Shader *shader, Text *text);
 void text_render(Shader *shader, Text *text, int x, int y);
 void text_destroy(Text *text);

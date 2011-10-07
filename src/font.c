@@ -21,7 +21,7 @@ static void fontlib_destroy(void)
 		FT_Done_FreeType(fontlib);
 }
 
-Font *font_load(const char *filename, int size)
+Font *font_load(const char *filename)
 {
 	Font *font;
 
@@ -45,7 +45,6 @@ Font *font_load(const char *filename, int size)
 		ralloc_free(font);
 		return NULL;
 	}
-	font->size = size;
 	log_dbg("Loaded font with %ld glyphs\n", font->face->num_glyphs);
 
 	return font;
@@ -57,19 +56,125 @@ void font_destroy(Font *font)
 	ralloc_free(font);
 }
 
-static void compute_glyphstring_bbox(FT_Glyph *string, FT_Vector *pos, 
-		size_t len, FT_BBox *bbox)
+static const unsigned int utf8_tail_length[256] = {
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x0F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x1F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x2F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x3F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x4F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x5F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x6F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x7F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x8F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x9F */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xAF */
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xBF */
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /* 0xCF */
+1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /* 0xDF */
+2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, /* 0xEF */
+3,3,3,3,3,3,3,3,4,4,4,4,5,5,0,0, /* 0xFF */
+};
+
+static uint32_t utf8_next(const uint8_t **s)
 {
-	unsigned int i;
+	uint32_t c;
+	int i, tail_len;
+
+	/* Start with the first byte */
+	c = (*s)[0];
+	(*s)++;
+
+	/* Return early if it's plain ASCII */
+	if (c < 0x80)
+		return c;
+
+	/* Store the first 1-6 bits */
+	tail_len = utf8_tail_length[c & 0xff];
+	c &= (0x3f >> tail_len);
+
+	/* Main decoding loop */
+	for (i = 0; i < tail_len; i++)
+	{
+		if ((*s)[i] == '\0' || ((*s)[i] & 0xc0) != 0x80)
+			break; /* End of string or invalid continuation byte */
+
+		c = (c << 6) + ((*s)[i] & 0x3f);
+	}
+
+	*s += i;
+	if (i != tail_len)
+		return 0xFFFD; /* Replacement character � */
+
+	/* TODO: Check for overlong encodings, surrogate pairs etc */
+
+	return c;
+}
+
+static void glyphstring_create(FT_Face face, Text *text, FT_Glyph *glyph_string,
+		FT_Vector *pos)
+{
+	const uint8_t *string = text->string;
+	FT_Bool has_kerning;
+	FT_UInt glyph_index, previous;
+	FT_Vector pen, delta;
+	uint32_t charcode;
+	int i;
+
+	has_kerning = FT_HAS_KERNING(face);
+	previous = 0;
+	i = 0;
+	pen.x = pen.y = 0;
+	while (string[0] != '\0')
+	{
+		charcode = utf8_next(&string);
+		glyph_index = FT_Get_Char_Index(face, charcode);
+		if (has_kerning && previous && glyph_index)
+			FT_Get_Kerning(face, previous, glyph_index, FT_KERNING_DEFAULT,
+					&delta);
+		else
+			delta.x = 0;
+
+		if (glyph_index == 0)
+			log_err("Glyph for character U+%X missing\n", charcode);
+
+		if (FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER) != 0)
+		{
+			log_err("Error loading glyph for character U+%X\n", charcode);
+			continue;
+		}
+		if (FT_Get_Glyph(face->glyph, &glyph_string[i]) != 0)
+		{
+			log_err("Error copying glyph for character U+%X\n", charcode);
+			continue;
+		}
+
+		pen.x += delta.x;
+
+		pos[i] = pen;
+
+		pen.x += face->glyph->advance.x;
+		pen.y += face->glyph->advance.y;
+
+		previous = glyph_index;
+		i++;
+	}
+
+	text->num_glyphs = i;
+}
+
+static void compute_glyphstring_bbox(FT_Glyph *string, FT_Vector *pos,
+		int len, FT_BBox *bbox)
+{
+	FT_BBox glyph_bbox;
+	int i;
 
 	bbox->xMin = bbox->yMin = 32000;
 	bbox->xMax = bbox->yMax = -32000;
 
 	for (i = 0; i < len; i++)
 	{
-		FT_BBox glyph_bbox;
 		FT_Glyph_Get_CBox(string[i], FT_GLYPH_BBOX_GRIDFIT, &glyph_bbox);
-		
+
 		glyph_bbox.xMin += pos[i].x;
 		glyph_bbox.xMax += pos[i].x;
 		glyph_bbox.yMin += pos[i].y;
@@ -127,101 +232,23 @@ static void blit_glyph(FT_BitmapGlyph glyph, GLubyte *image, int x, int y,
 	}
 }
 
-#if 0
-static void print_bitmap(unsigned char *buffer, int pitch, int height)
+Text *text_create(Font *font, const uint8_t *string, int size)
 {
-	int ix, iy;
-
-	for (iy = 0; iy < height; iy++)
-	{
-		for (ix = 0; ix < pitch; ix++)
-		{
-			unsigned char b = buffer[iy*pitch + ix];
-			if (b < 255/3)
-				log_dbg("%s", "..");
-			else if (b < 255/3*2)
-				log_dbg("%s", "++");
-			else
-				log_dbg("%s", "**");
-		}
-		log_dbg("\n");
-	}
-}
-#endif
-
-static const unsigned int utf8_tail_length[256] = {
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x0F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x1F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x2F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x3F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x4F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x5F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x6F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x7F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x8F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0x9F */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xAF */
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, /* 0xBF */
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /* 0xCF */
-1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /* 0xDF */
-2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, /* 0xEF */
-3,3,3,3,3,3,3,3,4,4,4,4,5,5,0,0, /* 0xFF */
-};
-
-static uint32_t utf8_next(const uint8_t **s)
-{
-	uint32_t c;
-	int i, tail_len;
-
-	/* Start with the first byte */
-	c = (*s)[0];
-	(*s)++;
-
-	/* Return early if it's plain ASCII */
-	if (c < 0x80)
-		return c;
-
-	/* Store the first 1-6 bits */
-	tail_len = utf8_tail_length[c & 0xff];
-	c &= (0x3f >> tail_len);
-
-	/* Main decoding loop */
-	for (i = 0; i < tail_len; i++)
-	{
-		if ((*s)[i] == '\0' || ((*s)[i] & 0xc0) != 0x80)
-			break; /* End of string or invalid continuation byte */
-
-		c = (c << 6) + ((*s)[i] & 0x3f);
-	}
-
-	*s += i;
-	if (i != tail_len)
-		return 0xFFFD; /* Replacement character � */
-
-	return c;
-}
-
-Text *text_create(Font *font, const uint8_t *string)
-{
-	FT_Bool has_kerning;
-	FT_Face face = font->face;
-	FT_ULong charcode;
-	FT_Glyph *glyph_string;
-	FT_Vector *pos, pen;
-	FT_BBox bbox;
-	FT_UInt previous;
 	Text *text;
+	FT_Face face = font->face;
+	FT_Glyph *glyph_string;
+	FT_Vector *pos;
+	FT_BBox bbox;
 	FT_Long width, height;
-	unsigned int glyph_index, i, num_glyphs;
 	size_t len;
 	float x, y;
+	int i;
 
-	if (FT_Set_Char_Size(face, 0, font->size*64, 76, 76) != 0)
+	if (FT_Set_Char_Size(face, 0, size*64, 0, 0) != 0)
 	{
 		log_err("Error setting character size\n");
 		return NULL;
 	}
-	has_kerning = FT_HAS_KERNING(face);
 
 	text = ralloc(font, Text);
 	if (text == NULL)
@@ -229,10 +256,13 @@ Text *text_create(Font *font, const uint8_t *string)
 		log_err("Out of memory\n");
 		return NULL;
 	}
+	text->size = size;
 	text->vao = text->vbo = text->texture = 0;
 	text->texture_image = NULL;
-	text->string = ralloc_strdup(text, (const char *) string);
+	text->string = (uint8_t *) ralloc_strdup(text, (const char *) string);
 	len = strlen((const char *) string); /* Bytecount */
+	/* We allocate more space than necessary for the glyph string, better safe
+	 * than sorry. */
 	glyph_string = ralloc_array(text, FT_Glyph, len);
 	pos = ralloc_array(text, FT_Vector, len);
 	if (text->string == NULL || glyph_string == NULL || pos == NULL)
@@ -242,50 +272,12 @@ Text *text_create(Font *font, const uint8_t *string)
 		return NULL;
 	}
 
-	/* First, we determine how big the text will be. This information is used
-	 * to determine the size of the texture we'll store the text in */
-	pen.x = pen.y = 0;
-	previous = 0;
-	num_glyphs = 0;
-	i = 0;
-	while (string[0] != '\0')
-	{
-		charcode = utf8_next(&string);
-		glyph_index = FT_Get_Char_Index(face, charcode);
-		if (has_kerning && previous && glyph_index)
-		{
-			FT_Vector delta;
+	/* The UTF-8 bytestring is converted to an array of glyphs */
+	glyphstring_create(face, text, glyph_string, pos);
+	/* We determine how big the text will be. This information is used
+	 * to compute the size of the texture we'll store the text in */
+	compute_glyphstring_bbox(glyph_string, pos, text->num_glyphs, &bbox);
 
-			FT_Get_Kerning(face, previous, glyph_index, FT_KERNING_DEFAULT,
-					&delta);
-			pen.x += delta.x;
-		}
-
-		if (FT_Load_Glyph(face, glyph_index, FT_LOAD_RENDER) != 0)
-		{
-			log_err("Error loading glyph for character '%c'\n", string[i]);
-			ralloc_free(text);
-			return NULL;
-		}
-		if (FT_Get_Glyph(face->glyph, &glyph_string[i]) != 0)
-		{
-			log_err("Error getting glyph for character '%c'\n", string[i]);
-			ralloc_free(text);
-			return NULL;
-		}
-		
-		pos[i] = pen;
-
-		pen.x += face->glyph->advance.x;
-		pen.y += face->glyph->advance.y;
-
-		previous = glyph_index;
-		i++;
-	}
-
-	text->length = i;
-	log_err("%u\n", i);
-	compute_glyphstring_bbox(glyph_string, pos, text->length, &bbox);
 	width  = bbox.xMax - bbox.xMin;
 	height = bbox.yMax - bbox.yMin;
 	text->width = (width/64 + 0x3) & ~0x3; /* Align to 4 bytes */
@@ -295,16 +287,17 @@ Text *text_create(Font *font, const uint8_t *string)
 	if (text->texture_image == NULL)
 	{
 		log_err("Out of memory\n");
-		for (i = 0; i < text->length; i++)
+		for (i = 0; i < text->num_glyphs; i++)
 			FT_Done_Glyph(glyph_string[i]);
 		ralloc_free(text);
 		return NULL;
 	}
 	/* Now we can render the text to a texture */
-	for (i = 0; i < text->length; i++)
+	for (i = 0; i < text->num_glyphs; i++)
 	{
 		FT_Glyph glyph;
 		FT_BitmapGlyph bitmap_glyph;
+		FT_Vector pen;
 
 		glyph = glyph_string[i];
 		pen.x = pos[i].x;
@@ -354,6 +347,9 @@ Text *text_create(Font *font, const uint8_t *string)
 	text->vertex[3].v = 1;
 
 	text->num_vertices = 4;
+	text->colour[0] = 0.0;
+	text->colour[1] = 0.0;
+	text->colour[2] = 1.0;
 
 	return text;
 }
@@ -375,7 +371,7 @@ void text_upload_to_gpu(Shader *shader, Text *text)
 	glVertexAttribPointer(shader->location[SHADER_ATT_TEXCOORD], 2, GL_FLOAT,
 			GL_FALSE, sizeof(struct TextVertex),
 			(void *) offsetof(struct TextVertex, u));
-	
+
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -386,7 +382,7 @@ void text_upload_to_gpu(Shader *shader, Text *text)
 			0, GL_RED, GL_UNSIGNED_BYTE, text->texture_image);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	
+
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	ralloc_free(text->texture_image);
@@ -394,12 +390,10 @@ void text_upload_to_gpu(Shader *shader, Text *text)
 
 void text_render(Shader *shader, Text *text, int x, int y)
 {
-	glUniform1i(glGetUniformLocation(shader->program, "text_texture"),
-		0);
-	glUniform3f(glGetUniformLocation(shader->program, "text_colour"),
-		0, 0, 1);
-	glUniform2i(glGetUniformLocation(shader->program, "text_location"),
-		x, y);
+	glUniform1i(glGetUniformLocation(shader->program, "text_texture"), 0);
+	glUniform3fv(glGetUniformLocation(shader->program, "text_colour"),
+		1, text->colour);
+	glUniform2i(glGetUniformLocation(shader->program, "text_location"), x, y);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, text->texture);

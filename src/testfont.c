@@ -14,7 +14,7 @@ static int init_allegro(void)
 {
 	if (!al_init())
 		return 1;
-	
+
 	al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_RESIZABLE |
 			ALLEGRO_OPENGL | ALLEGRO_OPENGL_3_0 );	
 	al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
@@ -49,15 +49,15 @@ int main(int argc, char **argv)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-	font = font_load(STRINGIFY(ROOT_PATH) "/data/DejaVuLGCSans.ttf", 36);
+	font = font_load(STRINGIFY(ROOT_PATH) "/data/DejaVuLGCSans.ttf");
 	if (font == NULL)
 		return 1;
-	text[0] = text_create(font, (const uint8_t *) "Latin");
-	text[1] = text_create(font, (const uint8_t *) "Ελληνικό αλφάβητο");
-	text[2] = text_create(font, (const uint8_t *) "кириллица");
-	text[3] = text_create(font, (const uint8_t *) "∀☭∈R: ☭ ≥ ☭");
-	text[4] = text_create(font, (const uint8_t *) "�");
-	text[5] = text_create(font, (const uint8_t *) string);
+	text[0] = text_create(font, (const uint8_t *) "Latin", 14);
+	text[1] = text_create(font, (const uint8_t *) "Ελληνικό αλφάβητο", 14);
+	text[2] = text_create(font, (const uint8_t *) "кириллица", 14);
+	text[3] = text_create(font, (const uint8_t *) "∀☭∈R: ☭ ≥ ☭", 14);
+	text[4] = text_create(font, (const uint8_t *) "�", 14);
+	text[5] = text_create(font, (const uint8_t *) string, 14);
 
 
 	for (i = 0; i < 6; i++)
@@ -72,12 +72,12 @@ int main(int argc, char **argv)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		for (i = 0; i < 6; i++)
 		{
-			int y = 400 - (font->size * 1.5 * 76/72)*(i+1);
+			int y = 400 - (text[i]->size * 1.5 * 76/72)*(i+1);
 			text_render(shader, text[i], 20, y);
 		}
 		al_flip_display();
 	}
-	
+
 	for (i = 0; i < 6; i++)
 		text_destroy(text[i]);
 	font_destroy(font);
