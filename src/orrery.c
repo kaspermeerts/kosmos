@@ -6,9 +6,6 @@
 #include <allegro5/allegro.h>
 #include <ralloc.h>
 
-#define STRINGIFY(s) XSTRINGIFY(s)
-#define XSTRINGIFY(s) #s
-
 #include "mathlib.h"
 #include "shader.h"
 #include "glm.h"
@@ -17,6 +14,7 @@
 #include "solarsystem.h"
 #include "render.h"
 #include "input.h"
+#include "util.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846L

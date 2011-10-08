@@ -6,9 +6,6 @@
 #include <allegro5/allegro.h>
 #include <ralloc.h>
 
-#define STRINGIFY(s) XSTRINGIFY(s)
-#define XSTRINGIFY(s) #s
-
 #include "mathlib.h"
 #include "shader.h"
 #include "glm.h"
@@ -16,6 +13,7 @@
 #include "mesh.h"
 #include "render.h"
 #include "input.h"
+#include "util.h"
 
 static void calcfps(void);
 int init_allegro(Camera *cam);

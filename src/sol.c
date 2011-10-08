@@ -3,9 +3,7 @@
 #include <ralloc.h>
 
 #include "solarsystem.h"
-
-#define XSTRINGIFY(s) #s
-#define STRINGIFY(x) XSTRINGIFY(x)
+#include "util.h"
 
 static void print_satellites(int level, Body *body)
 {

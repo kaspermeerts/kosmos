@@ -6,11 +6,11 @@
 #include <GL/gl.h>
 #include <ralloc.h>
 #include <rply.h>
-#include <allegro5/allegro.h>
 
 #include "mathlib.h"
 #include "mesh.h"
 #include "log.h"
+#include "util.h"
 
 enum vertex_props {
 	PROP_X,
@@ -35,7 +35,6 @@ static Normal calc_quad_normal(Vertex v1, Vertex v2, Vertex v3, Vertex v4);
 
 Mesh *mesh_import(const char *filename)
 {
-	ALLEGRO_PATH *path;
 	Mesh *mesh;
 
 	if ((mesh = ralloc(NULL, Mesh)) == NULL)
@@ -49,10 +48,8 @@ Mesh *mesh_import(const char *filename)
 		return NULL;
 	}
 
-	path = al_create_path(filename);
-	mesh->name = ralloc_strdup(mesh, al_get_path_filename(path));
+	mesh->name = ralloc_strdup(mesh, path_filename(filename));
 	log_dbg("Loaded mesh %s\n", mesh->name);
-	al_destroy_path(path);
 	generate_normals(mesh); /* FIXME: What if we already have normals? */
 	mesh_unitize(mesh);
 

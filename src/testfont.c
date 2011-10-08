@@ -6,9 +6,7 @@
 #include "glm.h"
 #include "font.h"
 #include "shader.h"
-
-#define STRINGIFY(s) XSTRINGIFY(s)
-#define XSTRINGIFY(x) #x
+#include "util.h"
 
 static int init_allegro(void)
 {

@@ -6,6 +6,7 @@
 
 #include "shader.h"
 #include "log.h"
+#include "util.h"
 
 static GLuint shader_load(const char *file, GLenum type);
 static void show_info_log(GLuint object, PFNGLGETSHADERIVPROC glGet__iv,
@@ -25,7 +26,6 @@ void shader_delete(Shader *shader)
 
 Shader *shader_create(const char *vertex_file, const char *fragment_file)
 {
-	ALLEGRO_PATH *vpath, *fpath;
 	GLint link_status;
 	Shader *shader = NULL;
 
@@ -61,12 +61,8 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 	}
 	glBindFragDataLocation(shader->program, 0, "out_colour");
 
-	vpath = al_create_path(vertex_file);
-	fpath = al_create_path(fragment_file);
-	log_dbg("Loaded shader from %s and %s\n", al_get_path_filename(vpath),
-			al_get_path_filename(fpath));
-	al_destroy_path(fpath);
-	al_destroy_path(vpath);
+	log_dbg("Loaded shader from %s and %s\n", path_filename(vertex_file),
+			path_filename(fragment_file));
 
 	show_info_log(shader->program, glGetProgramiv, glGetProgramInfoLog);
 
