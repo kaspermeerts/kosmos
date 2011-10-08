@@ -21,7 +21,7 @@ static void print_satellites(int level, Body *body)
 int main(int argc, char **argv)
 {
 	SolarSystem *sol;
-	Body *center;
+	Body *center = NULL;
 	const char *filename;
 
 	if (argc < 2)
