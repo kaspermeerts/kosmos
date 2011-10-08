@@ -28,19 +28,19 @@ int main(int argc, char **argv)
 		filename = STRINGIFY(ROOT_PATH) "/data/sol.ini";
 	else
 		filename = argv[1];
-	
+
 	sol = solsys_load(filename);
 	if (sol == NULL)
 		return 1;
-	
+
 	for (int i = 0; i < sol->num_bodies; i++)
 		if (sol->body[i].primary == NULL)
 			center = &sol->body[i];
-	
+
 	printf("%s\n", center->name);
 	print_satellites(1, center);
 
 	ralloc_free(sol);
 
 	return 0;
-}	
+}

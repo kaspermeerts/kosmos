@@ -138,7 +138,7 @@ static bool config_get_string(ALLEGRO_CONFIG *cfg, const char *sec,
 	return true;
 }
 
-static bool load_body(void *ctx, ALLEGRO_CONFIG *cfg, const char *fullname,
+static bool load_body(ALLEGRO_CONFIG *cfg, const char *fullname,
 		Body *body, char **primary_name)
 {
 	const char *name;
@@ -190,7 +190,7 @@ static bool load_body(void *ctx, ALLEGRO_CONFIG *cfg, const char *fullname,
 	if ((name = strrchr(fullname, '/')) == NULL)
 	{
 		/* This is a body without a primary */
-		body->name = ralloc_strdup(ctx, fullname);
+		body->name = ralloc_strdup(body->ctx, fullname);
 		body->type = (body->type == BODY_UNKNOWN ? BODY_STAR : body->type);
 		body->primary = NULL;
 		*primary_name = NULL;
@@ -203,20 +203,20 @@ static bool load_body(void *ctx, ALLEGRO_CONFIG *cfg, const char *fullname,
 		const char *c;
 		for (c = name - 1; c >= fullname && *c != '/'; c--);
 		c++;
-			
-		body->name = ralloc_strdup(ctx, name + 1);
+
+		body->name = ralloc_strdup(body->ctx, name + 1);
 		body->type = (body->type == BODY_UNKNOWN ? BODY_PLANET : body->type);
 		body->primary = NULL; /* Fill in later */
-		*primary_name = ralloc_strndup(ctx, c, name - c);
+		*primary_name = ralloc_strndup(body->ctx, c, name - c);
 	}
-	
+
 	body->num_satellites = 0;
 	body->satellite = NULL;
 
 	/* Bodies without primaries can't orbit another body */
 	if (*primary_name == NULL)
 		return true;
-	
+
 	if (!config_get_double(cfg, fullname, "Ecc", &body->orbit.Ecc, false) ||
 	    !config_get_double(cfg, fullname, "SMa", &body->orbit.SMa, false) ||
 	    !config_get_double(cfg, fullname, "Inc", &body->orbit.Inc, false) ||
@@ -248,7 +248,7 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 		if (name[0] != '\0')
 			num_bodies++;
 	}
-	
+
 	if (num_bodies == 0)
 		return NULL; /* Empty solarsystem */
 
@@ -271,7 +271,8 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 		if (name[0] == '\0')
 			continue;
 
-		if (!load_body(solsys, cfg, name, &solsys->body[i], &primary_names[i]))
+		solsys->body[i].ctx = solsys;
+		if (!load_body(cfg, name, &solsys->body[i], &primary_names[i]))
 		{
 			log_err("Couldn't load body %s\n", name);
 			ralloc_free(solsys);
@@ -322,7 +323,7 @@ static SolarSystem *load_from_config(ALLEGRO_CONFIG *cfg)
 			return NULL;
 		}
 		body->primary->satellite[body->primary->num_satellites - 1] = body;
-		
+
 		body->orbit.epoch = 0;
 		body->orbit.period = M_TWO_PI *
 				sqrt(CUBE(body->orbit.SMa) / body->primary->grav_param);
@@ -377,9 +378,9 @@ static void update_satellites(Body *body, double t)
 		body->satellite[i]->position = vec3_add(body->position, v);
 		update_satellites(body->satellite[i], t);
 	}
-		
+
 	return;
-}	
+}
 
 void solsys_update(SolarSystem *solsys, double t)
 {
@@ -394,4 +395,4 @@ void solsys_update(SolarSystem *solsys, double t)
 		}
 	}
 }
-		
+

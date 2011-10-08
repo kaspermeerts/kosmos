@@ -4,7 +4,6 @@ uniform mat4 projection_matrix;
 uniform mat4 model_matrix;
 uniform mat4 view_matrix;
 uniform vec3 light_pos, light_ambient, light_diffuse, light_specular;
-uniform float shininess;
 
 in vec3 in_position;
 in vec3 in_normal;

@@ -5,6 +5,7 @@
 #include "keplerorbit.h"
 
 typedef struct Body {
+	void *ctx; /* Memory allocation context */
 	char *name;
 	double mass;
 	double grav_param; /* Gravitational parameter */

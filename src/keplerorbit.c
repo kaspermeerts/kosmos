@@ -1,7 +1,6 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <allegro5/allegro.h>
 
 #include "mathlib.h"
 #include "keplerorbit.h"

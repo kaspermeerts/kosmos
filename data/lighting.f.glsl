@@ -4,7 +4,6 @@ uniform mat4 projection_matrix;
 uniform mat4 view_matrix;
 uniform mat4 model_matrix;
 uniform vec3 light_pos, light_ambient, light_diffuse, light_specular;
-uniform float shininess;
 
 in vec3 L, E, vertNormal;
 
@@ -14,6 +13,7 @@ void main(void)
 {
 	vec3 N, R;
 	float NdotL, RdotE;
+	float shininess = 11.264;
 
 	N = normalize(vertNormal);
 	R = reflect(-L, N);

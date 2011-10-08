@@ -21,7 +21,6 @@ typedef struct {
 #define SHADER_UNI_LIGHT_AMBIENT 7
 #define SHADER_UNI_LIGHT_DIFFUSE 8
 #define SHADER_UNI_LIGHT_SPECULAR 9
-#define SHADER_UNI_LIGHT_SHININESS 10
 
 Shader *shader_create(const char *vertex_source, const char *fragment_source);
 void shader_delete(Shader *shader);

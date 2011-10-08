@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
-#include <allegro5/allegro.h>
 
 #include "shader.h"
 #include "log.h"
@@ -20,7 +19,7 @@ void shader_delete(Shader *shader)
 	glDeleteShader(shader->vertex_shader);
 	glDeleteShader(shader->fragment_shader);
 	glDeleteProgram(shader->program);
-	
+
 	free(shader);
 }
 
@@ -32,7 +31,7 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 	/* 0 is a sane default for both shaders and the program */
 	if ((shader = calloc(1, sizeof(Shader))) == NULL)
 		return NULL;
-	
+
 	shader->program = glCreateProgram();
 	if (shader->program == 0)
 	{
@@ -86,9 +85,6 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 			glGetUniformLocation(shader->program, "light_diffuse");
 	shader->location[SHADER_UNI_LIGHT_SPECULAR] =
 			glGetUniformLocation(shader->program, "light_specular");
-	shader->location[SHADER_UNI_LIGHT_SHININESS] =
-			glGetUniformLocation(shader->program, "shininess");
-
 
 	return shader;
 
@@ -99,11 +95,11 @@ errorout:
 
 static GLuint shader_load(const char *file, GLenum type)
 {
-	GLuint shader = 0;
 	char *contents = NULL;
-	ALLEGRO_FILE *fd = NULL;
+	FILE *fd = NULL;
 	long filesize;
 	GLint compile_status;
+	GLuint shader = 0;
 
 	if ((shader = glCreateShader(type)) == 0)
 	{
@@ -111,13 +107,13 @@ static GLuint shader_load(const char *file, GLenum type)
 		goto errorout;
 	}
 
-	if ((fd = al_fopen(file, "rb")) == NULL)
+	if ((fd = fopen(file, "rb")) == NULL)
 	{
 		log_err("Couldn't open file: %s\n", file);
 		goto errorout;
 	}
 
-	if ((filesize = al_fsize(fd)) < 0)
+	if ((filesize = fsize(fd)) < 0)
 	{
 		log_err("Couldn't determine size of file: %s\n", file);
 		goto errorout;
@@ -129,12 +125,12 @@ static GLuint shader_load(const char *file, GLenum type)
 		goto errorout;
 	}
 
-	if (al_fread(fd, contents, (size_t) filesize) != (size_t) filesize)
+	if (fread(contents, 1, (size_t) filesize, fd) != (size_t) filesize)
 	{
 		log_err("Error reading shader file %s\n", file);
 		goto errorout;
 	}
-	al_fclose(fd);
+	fclose(fd);
 	fd = NULL;
 
 	contents[filesize] = '\0';
@@ -154,11 +150,12 @@ static GLuint shader_load(const char *file, GLenum type)
 	}
 
 	return shader;
+
 errorout:
 	glDeleteShader(shader);
 	free(contents);
 	if(fd)
-		al_fclose(fd);
+		fclose(fd);
 	return 0;
 }
 
