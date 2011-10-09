@@ -24,13 +24,12 @@ static void calcfps(void);
 int init_allegro(Camera *cam);
 
 ALLEGRO_DISPLAY *dpy;
-	ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
+ALLEGRO_EVENT_QUEUE *ev_queue = NULL;
 
 Vec3 light_pos = {0, 0, 0};
 GLfloat light_ambient[3] = {0.25, 0.20725, 0.20725};
 GLfloat light_diffuse[3] = {1, 0.829, 0.829};
 GLfloat light_specular[3] = {0.296648, 0.296648, 0.296648};
-GLfloat shininess = 0.088*128;
 
 SolarSystem *solsys;
 
@@ -86,7 +85,6 @@ int main(int argc, char **argv)
 	int i;
 	Light light;
 	Entity ent;
-	Entity ent_orbit;
 	const char *filename;
 	Camera cam;
 	Vec3 position = {0, 0, 150e9};
@@ -95,6 +93,7 @@ int main(int argc, char **argv)
 	Shader *shader_light;
 	Shader *shader_simple;
 	Mesh *mesh;
+	Renderable planet;
 	if (argc < 2)
 		filename = STRINGIFY(ROOT_PATH) "/data/teapot.ply";
 	else
@@ -144,25 +143,20 @@ int main(int argc, char **argv)
 	memcpy(light.ambient, light_ambient, sizeof(light_ambient));
 	memcpy(light.diffuse, light_diffuse, sizeof(light_diffuse));
 	memcpy(light.specular, light_specular, sizeof(light_specular));
-	light.shininess = shininess;
 
 	glClearColor(20/255., 30/255., 50/255., 1.0);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
 
-	ent.type = ENTITY_MESH;
+	planet.data = mesh;
+	planet.upload_to_gpu = mesh_upload_to_gpu;
+	planet.render = mesh_render;
+	renderable_upload_to_gpu(&planet, shader_light);
+
 	ent.orientation = (Quaternion) {1, 0, 0, 0};
-	ent.mesh = mesh;
-	entity_upload_to_gpu(shader_light, &ent);
-
-	ent_orbit.type = ENTITY_ORBIT;
-	ent_orbit.position = (Vec3) {0, 0, 0};
-	ent_orbit.orientation = (Quaternion) {1, 0, 0, 0};
-	ent_orbit.num_samples = 1000;
-	ent_orbit.sample = NULL;
-	//entity_upload_to_gpu(shader_simple, &ent_orbit);
-
+	ent.renderable = &planet;
+	
 	/* Transformation matrices */
 	cam_projection_matrix(&cam, glmProjectionMatrix);
 
@@ -183,18 +177,14 @@ int main(int argc, char **argv)
 
 		glUseProgram(shader_light->program);
 
-		light_upload_to_gpu(shader_light, &light);
+		light_upload_to_gpu(&light, shader_light);
 
 		for (i = 0; i < solsys->num_bodies; i++)
 		{
 			ent.position = solsys->body[i].position;
 			ent.scale = solsys->body[i].radius;
-			entity_render(shader_light, &ent);
+			entity_render(&ent, shader_light);
 		}
-
-		//glUseProgram(shader_simple->program);
-		//entity_render(shader_simple, &ent_orbit);
-
 
 		al_flip_display();
 		calcfps();

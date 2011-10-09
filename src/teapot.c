@@ -24,7 +24,6 @@ Vec3 light_pos = {4, 0, 5};
 GLfloat light_ambient[3] = {0.25, 0.20725, 0.20725};
 GLfloat light_diffuse[3] = {1, 0.829, 0.829};
 GLfloat light_specular[3] = {0.296648, 0.296648, 0.296648};
-GLfloat shininess = 0.088*128;
 
 double t = 0.0;
 
@@ -71,8 +70,9 @@ static void calcfps()
 int main(int argc, char **argv)
 {
 	Light light;
-	Entity ent;
+	Entity ent1, ent2;
 	Shader *shader;
+	Renderable teapot;
 	const char *filename;
 	Camera cam;
 	Vec3 position = {0, 0, 5};
@@ -128,16 +128,27 @@ int main(int argc, char **argv)
 	memcpy(light.ambient, light_ambient, sizeof(light_ambient));
 	memcpy(light.diffuse, light_diffuse, sizeof(light_diffuse));
 	memcpy(light.specular, light_specular, sizeof(light_specular));
-	light.shininess = shininess;
 
-	light_upload_to_gpu(shader, &light);
+	light_upload_to_gpu(&light, shader);
 
-	ent.position = target;
-	ent.orientation = q0;
-	ent.type = ENTITY_MESH;
-	ent.mesh = mesh;
-	ent.scale = 1;
-	entity_upload_to_gpu(shader, &ent);
+	teapot.data = mesh;
+	teapot.upload_to_gpu = mesh_upload_to_gpu;
+	teapot.render = mesh_render;
+	renderable_upload_to_gpu(&teapot, shader);
+
+	ent1.position = target;
+	ent1.orientation = q0;
+	ent1.scale = 1;
+	ent1.renderable = &teapot;
+	ent1.next = &ent2;
+
+	ent2.position = target;
+	ent2.position.y += 1;
+	ent2.orientation = q0;
+	ent2.scale = 1;
+	ent2.renderable = &teapot;
+	ent2.next = NULL;
+
 
 	/* Transformation matrices */
 
@@ -156,18 +167,20 @@ int main(int argc, char **argv)
 		glmLoadIdentity(glmViewMatrix);
 		cam_view_matrix(&cam, glmViewMatrix);
 
+
 		/* First the lights */
 		/* No model matrix yet, location is directly in world space */
 		light.position.x = 5 * cos(M_TWO_PI*t);
 		light.position.y = 1;
 		light.position.z = 5 * sin(M_TWO_PI*t);
-		light_upload_to_gpu(shader, &light);
-		
+		light_upload_to_gpu(&light, shader);
+
 		/* Now the mesh */
 		glmPushMatrix(&glmModelMatrix);
 			/* The model matrix is set in the entity_render code */
-			ent.orientation = q;
-			entity_render(shader, &ent);
+			ent1.orientation = q;
+			ent1.next->orientation = quat_conjugate(q);
+			render_entity_list(&ent1, shader);
 		glmPopMatrix(&glmModelMatrix);
 
 		al_flip_display();

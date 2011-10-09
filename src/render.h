@@ -8,35 +8,42 @@
 #include "camera.h"
 #include "solarsystem.h"
 
+typedef void (*upload_cb)(void *self, Shader *shader);
+typedef void (*render_cb)(void *self, Shader *shader);
+
 typedef struct Light {
 	Vec3 position; /* Position in model space */
 
 	float ambient[3];
 	float diffuse[3];
 	float specular[3];
-
-	float shininess; /* FIXME: Is a material dependent property */
 } Light;
 
-typedef struct Entity {
-	enum { ENTITY_MESH, ENTITY_ORBIT, ENTITY_LODSPHERE } type;
+typedef struct Renderable {
+	GLuint vao; /* Vertex Array Object */
 
-	/* Common stuff */
-	Vec3 position; /* XXX: Maybe make this a different type: Point3 */
+	upload_cb upload_to_gpu;
+	render_cb render;
+
+	enum {MEMLOC_RAM, MEMLOC_GPU} memloc;
+
+	void *data;
+} Renderable;
+
+typedef struct Entity {
+	struct Entity *next;
+	Vec3 position;
 	Quaternion orientation;
 	double scale;
 
-	GLuint vao; /* Vertex Array Object */
-
-	/* TODO: Put all of this in a union */
-	Mesh *mesh;
-
-	int num_samples;
-	Vertex *sample;
+	Renderable *renderable;
 } Entity;
 
-void entity_upload_to_gpu(Shader *shader, Entity *ent);
-void entity_render(Shader *shader, Entity *ent);
-void light_upload_to_gpu(Shader *shader, Light *light);
+void render_entity_list(Entity *ent, Shader *shader);
+void entity_render(Entity *ent, Shader *shader);
+void mesh_upload_to_gpu(void *mesh, Shader *shader);
+void light_upload_to_gpu(void *light, Shader *shader);
+void renderable_upload_to_gpu(Renderable *obj, Shader *shader);
+void mesh_render(void *self, Shader *shader);
 
 #endif

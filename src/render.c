@@ -6,8 +6,9 @@
 
 GLuint orbit_vbo;
 
-static void upload_mesh_to_gpu(Mesh *mesh, Shader *shader)
+void mesh_upload_to_gpu(void *data, Shader *shader)
 {
+	Mesh *mesh = (Mesh *) data;
 	/* Vertices */
 	glGenBuffers(1, &mesh->vertex_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_vbo);
@@ -16,7 +17,7 @@ static void upload_mesh_to_gpu(Mesh *mesh, Shader *shader)
 	glEnableVertexAttribArray(shader->location[SHADER_ATT_POSITION]);
 	glVertexAttribPointer(shader->location[SHADER_ATT_POSITION], 3, GL_FLOAT,
 			GL_FALSE, sizeof(Vertex), 0);
-	
+
 	/* Normals */
 	glGenBuffers(1, &mesh->normal_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->normal_vbo);
@@ -35,43 +36,24 @@ static void upload_mesh_to_gpu(Mesh *mesh, Shader *shader)
 	return;
 }
 
-static void upload_orbit_to_gpu(int n, Vertex *path, Shader *shader)
+void renderable_upload_to_gpu(Renderable *obj, Shader *shader)
 {
-	glGenBuffers(1, &orbit_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, orbit_vbo);
-	glBufferData(GL_ARRAY_BUFFER, (size_t) n * sizeof(Vec3), path,
-			GL_STATIC_DRAW);
-	glEnableVertexAttribArray(shader->location[SHADER_ATT_POSITION]);
-	glVertexAttribPointer(shader->location[SHADER_ATT_POSITION], 3, GL_FLOAT,
-		GL_FALSE, sizeof(Vec3), 0);
-}
+	glGenVertexArrays(1, &obj->vao);
+	glBindVertexArray(obj->vao);
 
-void entity_upload_to_gpu(Shader *shader, Entity *ent)
-{
-	glGenVertexArrays(1, &ent->vao);
-	glBindVertexArray(ent->vao);
-
-	switch(ent->type)
-	{
-	case ENTITY_MESH:
-		upload_mesh_to_gpu(ent->mesh, shader);
-		break;
-	case ENTITY_ORBIT:
-		upload_orbit_to_gpu(ent->num_samples, ent->sample, shader);
-		break;
-	default:
-		break;
-	}
+	obj->upload_to_gpu(obj->data, shader);
+	obj->memloc = MEMLOC_GPU;
 
 	glBindVertexArray(0); /* So we don't accidentally overwrite the VAO */
 
 	return;
 }
 
-void light_upload_to_gpu(Shader *shader, Light *light)
+void light_upload_to_gpu(void *data, Shader *shader)
 {
 	Vec3 newpos;
 	GLfloat pos3f[3];
+	Light *light = (Light *) data;
 
 	newpos = glmTransformVector(glmViewMatrix, light->position);
 	pos3f[0] = newpos.x; pos3f[1] = newpos.y; pos3f[2] = newpos.z;
@@ -80,21 +62,27 @@ void light_upload_to_gpu(Shader *shader, Light *light)
 	glUniform3fv(shader->location[SHADER_UNI_LIGHT_AMBIENT], 1, light->ambient);
 	glUniform3fv(shader->location[SHADER_UNI_LIGHT_DIFFUSE], 1, light->diffuse);
 	glUniform3fv(shader->location[SHADER_UNI_LIGHT_SPECULAR], 1, light->specular);
-	glUniform1f(shader->location[SHADER_UNI_LIGHT_SHININESS], light->shininess);
 }
 
-static void render_mesh(Mesh *mesh)
+void mesh_render(void *self, Shader *shader)
 {
-	glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1, 
+	Mesh *mesh = (Mesh *) self;
+
+	shader = shader;
+	glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1,
 			mesh->num_indices, GL_UNSIGNED_INT, NULL);
 }
 
-static void render_orbit(int n)
+void render_entity_list(Entity *ent, Shader *shader)
 {
-	glDrawArrays(GL_LINE_LOOP, 0, n);
+	while(ent)
+	{
+		entity_render(ent, shader);
+		ent = ent->next;
+	}
 }
 
-void entity_render(Shader *shader, Entity *ent)
+void entity_render(Entity *ent, Shader *shader)
 {
 	glmPushMatrix(&glmModelMatrix);
 
@@ -107,20 +95,9 @@ void entity_render(Shader *shader, Entity *ent)
 	glmUniformMatrix(shader->location[SHADER_UNI_V_MATRIX], glmViewMatrix);
 	glmUniformMatrix(shader->location[SHADER_UNI_M_MATRIX], glmModelMatrix);
 
-	glBindVertexArray(ent->vao);
+	glBindVertexArray(ent->renderable->vao);
 
-	switch(ent->type)
-	{
-	case ENTITY_MESH:
-		render_mesh(ent->mesh);
-		break;
-	case ENTITY_ORBIT:
-		glBindBuffer(GL_ARRAY_BUFFER, orbit_vbo);
-		render_orbit(ent->num_samples);
-		break;
-	default:
-		break;
-	};
+	ent->renderable->render(ent->renderable->data, shader);
 
 	glBindVertexArray(0);
 
