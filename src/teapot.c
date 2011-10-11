@@ -14,6 +14,8 @@
 #include "render.h"
 #include "input.h"
 #include "util.h"
+#include "font.h"
+#include "stats.h"
 
 static void calcfps(void);
 int init_allegro(Camera *cam);
@@ -27,6 +29,8 @@ GLfloat light_specular[3] = {0.296648, 0.296648, 0.296648};
 
 double t = 0.0;
 
+static char *fps_string = NULL;
+
 int init_allegro(Camera *cam)
 {
 	if (!al_init())
@@ -35,10 +39,10 @@ int init_allegro(Camera *cam)
 		return 1;
 	if (!al_install_keyboard())
 		return 1;
-	
+
 	al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_RESIZABLE |
 			ALLEGRO_OPENGL | ALLEGRO_OPENGL_3_0 );	
-	al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
+	al_set_new_display_option(ALLEGRO_VSYNC, 0, ALLEGRO_SUGGEST);
 
 	dpy = al_create_display(cam->left + cam->width, cam->bottom + cam->height);
 	glViewport(cam->left, cam->bottom, cam->width, cam->height);
@@ -52,15 +56,17 @@ static void calcfps()
 	static int frames;
 	static double tock=0.0;
 	double tick;
-	char string[64];
 
 	frames++;
 
 	tick = al_get_time();
 	if (tick - tock > SAMPLE_TIME)
 	{
-		snprintf(string, 64, "%d FPS", (int) (frames/(tick - tock) + 0.5));
-		al_set_window_title(dpy, string);
+		if (fps_string)
+			ralloc_free(fps_string);
+
+		fps_string = ralloc_asprintf(NULL, "%d FPS", (int) (frames/(tick - tock) + 0.5));
+		al_set_window_title(dpy, fps_string);
 
 		frames = 0;
 		tock = tick;
@@ -69,9 +75,10 @@ static void calcfps()
 
 int main(int argc, char **argv)
 {
+	Font *font;
 	Light light;
 	Entity ent1, ent2;
-	Shader *shader;
+	Shader *shader, *shader_text, *shader_simple;
 	Renderable teapot;
 	const char *filename;
 	Camera cam;
@@ -87,6 +94,10 @@ int main(int argc, char **argv)
 		filename = STRINGIFY(ROOT_PATH) "/data/teapot.ply";
 	else
 		filename = argv[1];
+
+	font = font_load(STRINGIFY(ROOT_PATH) "/data/DejaVuLGCSans.ttf");
+	if (font == NULL)
+		return 1;
 
 	mesh = mesh_import(filename);
 	if (mesh == NULL)
@@ -109,12 +120,21 @@ int main(int argc, char **argv)
 
 	glewInit();
 
-	shader = shader_create(STRINGIFY(ROOT_PATH) "/data/lighting.v.glsl", 
+	shader = shader_create(STRINGIFY(ROOT_PATH) "/data/lighting.v.glsl",
 	                       STRINGIFY(ROOT_PATH) "/data/lighting.f.glsl");
 	if (shader == NULL)
 		return 1;
-	glUseProgram(shader->program);
 
+	shader_text = shader_create(STRINGIFY(ROOT_PATH) "/data/text.v.glsl",
+	                            STRINGIFY(ROOT_PATH) "/data/text.f.glsl");
+	if (shader_text == NULL)
+		return 1;
+
+	shader_simple = shader_create(STRINGIFY(ROOT_PATH) "/data/simple.v.glsl",
+	                              STRINGIFY(ROOT_PATH) "/data/simple.f.glsl");
+	if (shader_simple == NULL)
+		return 1;
+shader = shader_simple;
 	glmProjectionMatrix = glmNewMatrixStack();
 	glmViewMatrix = glmNewMatrixStack();
 	glmModelMatrix = glmNewMatrixStack();
@@ -122,6 +142,7 @@ int main(int argc, char **argv)
 	glClearColor(100/255., 149/255., 237/255., 1.0);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
+	glEnable(GL_BLEND);
 	glCullFace(GL_BACK);
 
 	light.position = light_pos;
@@ -134,23 +155,25 @@ int main(int argc, char **argv)
 	teapot.data = mesh;
 	teapot.upload_to_gpu = mesh_upload_to_gpu;
 	teapot.render = mesh_render;
-	renderable_upload_to_gpu(&teapot, shader);
+	teapot.shader = shader;
+	renderable_upload_to_gpu(&teapot);
 
 	ent1.position = target;
 	ent1.orientation = q0;
-	ent1.scale = 1;
+	ent1.radius = 1;
 	ent1.renderable = &teapot;
+	ent1.prev = NULL;
 	ent1.next = &ent2;
 
 	ent2.position = target;
 	ent2.position.y += 1;
-	ent2.orientation = q0;
-	ent2.scale = 1;
+	ent2.orientation = (Quaternion) {1/M_SQRT2, 1/M_SQRT2, 0, 0};
+	ent2.radius = 1;
 	ent2.renderable = &teapot;
+	ent2.prev = &ent1;
 	ent2.next = NULL;
 
-
-	/* Transformation matrices */
+	stats_begin(font, shader_text, shader_simple);
 
 	/* Start rendering */
 	while(handle_input(ev_queue, &cam))
@@ -167,7 +190,7 @@ int main(int argc, char **argv)
 		glmLoadIdentity(glmViewMatrix);
 		cam_view_matrix(&cam, glmViewMatrix);
 
-
+		glUseProgram(shader->program);
 		/* First the lights */
 		/* No model matrix yet, location is directly in world space */
 		light.position.x = 5 * cos(M_TWO_PI*t);
@@ -176,17 +199,22 @@ int main(int argc, char **argv)
 		light_upload_to_gpu(&light, shader);
 
 		/* Now the mesh */
-		glmPushMatrix(&glmModelMatrix);
-			/* The model matrix is set in the entity_render code */
-			ent1.orientation = q;
-			ent1.next->orientation = quat_conjugate(q);
-			render_entity_list(&ent1, shader);
-		glmPopMatrix(&glmModelMatrix);
+		/* The model matrix is set in the entity_render code */
+		ent2.position.y = ent1.position.y + sin(M_TWO_PI*t/100);
+		ent1.orientation = q;
+		render_entity_list(&ent1);
 
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glUseProgram(shader_text->program);
+		glmLoadIdentity(glmProjectionMatrix);
+		glmOrtho(glmProjectionMatrix, 0, 1024, 0, 768, -1, 1);
+		glmUniformMatrix(shader_text->location[SHADER_UNI_P_MATRIX], glmProjectionMatrix);
+		stats_render(1024, 768);
 		al_flip_display();
 		calcfps();
 		t += 1.0/60/2;
 		q = quat_slerp(q0, q1, fabs(fmod(t+1, 2) - 1));
+		stats_end_of_frame();
 	}
 
 	ralloc_free(mesh);

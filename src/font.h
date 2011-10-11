@@ -36,4 +36,5 @@ Text *text_create(Font *font, const uint8_t *text, int size);
 void text_upload_to_gpu(Shader *shader, Text *text);
 void text_render(Shader *shader, Text *text, int x, int y);
 void text_destroy(Text *text);
+void text_create_and_render(Shader *shader, Font *font, int x, int y, const char *fmt, ...);
 #endif

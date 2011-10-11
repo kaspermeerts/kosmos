@@ -10,7 +10,8 @@ ${FREETYPE_LIBRARIES})
 include_directories(${render_includes})
 
 set(mathlib_sources vector.c quaternion.c matrix.c)
-set(render_sources render.c shader.c camera.c glm.c mesh.c input.c util.c)
+set(render_sources render.c shader.c camera.c glm.c mesh.c input.c util.c
+font.c stats.c)
 
 add_library(MathLib STATIC ${mathlib_sources})
 add_library(RenderLib STATIC ${render_sources})
@@ -29,5 +30,5 @@ target_link_libraries(orrery RenderLib External)
 add_executable(sol sol.c solarsystem.c keplerorbit.c log.c)
 target_link_libraries(sol MathLib ${ALLEGRO_LIBRARIES} External)
 
-add_executable(testfont testfont.c font.c log.c)
+add_executable(testfont testfont.c log.c)
 target_link_libraries(testfont RenderLib External)

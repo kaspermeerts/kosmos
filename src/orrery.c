@@ -84,7 +84,6 @@ int main(int argc, char **argv)
 {
 	int i;
 	Light light;
-	Entity ent;
 	const char *filename;
 	Camera cam;
 	Vec3 position = {0, 0, 150e9};
@@ -148,26 +147,49 @@ int main(int argc, char **argv)
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glCullFace(GL_BACK);
+	glPointSize(2);
 
 	planet.data = mesh;
 	planet.upload_to_gpu = mesh_upload_to_gpu;
 	planet.render = mesh_render;
-	renderable_upload_to_gpu(&planet, shader_light);
+	planet.shader = shader_light; //shader_light;
+	renderable_upload_to_gpu(&planet);
 
-	ent.orientation = (Quaternion) {1, 0, 0, 0};
-	ent.renderable = &planet;
-	
 	/* Transformation matrices */
 	cam_projection_matrix(&cam, glmProjectionMatrix);
 
 	/* Start rendering */
 	while(handle_input(ev_queue, &cam))
 	{
-		t +=0.25* 86400;
+		void *ctx;
+		Entity *renderlist, *prev;
+
+		t += 0.25* 86400;
 
 		/* Physics stuff */
 		solsys_update(solsys, t);
-		
+		ctx = ralloc_context(NULL);
+
+		prev = NULL;
+		for (i = 0; i < solsys->num_bodies; i++)
+		{
+			Entity *e;
+
+			e = ralloc(ctx, Entity);
+			e->orientation = (Quaternion) {1, 0, 0, 0};
+			e->renderable = &planet;
+			e->position = solsys->body[i].position;
+			e->radius = solsys->body[i].radius;
+			e->prev = prev;
+			e->next = NULL;
+			if (prev != NULL)
+				e->prev->next = e;
+			prev = e;
+
+			if (i == 0)
+				renderlist = e;
+		}
+
 		/* Rendering stuff */
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -175,19 +197,14 @@ int main(int argc, char **argv)
 		glmLoadIdentity(glmViewMatrix);
 		cam_view_matrix(&cam, glmViewMatrix); /* view */
 
-		glUseProgram(shader_light->program);
-
 		light_upload_to_gpu(&light, shader_light);
 
-		for (i = 0; i < solsys->num_bodies; i++)
-		{
-			ent.position = solsys->body[i].position;
-			ent.scale = solsys->body[i].radius;
-			entity_render(&ent, shader_light);
-		}
+		render_entity_list(renderlist);
 
 		al_flip_display();
 		calcfps();
+
+		ralloc_free(ctx);
 	}
 
 	ralloc_free(mesh);

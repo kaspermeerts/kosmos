@@ -6,9 +6,10 @@
 
 GLuint orbit_vbo;
 
-void mesh_upload_to_gpu(void *data, Shader *shader)
+void mesh_upload_to_gpu(Renderable *obj)
 {
-	Mesh *mesh = (Mesh *) data;
+	Mesh *mesh = (Mesh *) obj->data;
+	Shader *shader = obj->shader;
 	/* Vertices */
 	glGenBuffers(1, &mesh->vertex_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_vbo);
@@ -36,12 +37,26 @@ void mesh_upload_to_gpu(void *data, Shader *shader)
 	return;
 }
 
-void renderable_upload_to_gpu(Renderable *obj, Shader *shader)
+void point_upload_to_gpu(Renderable *obj)
+{
+	Shader *shader = obj->shader;
+	GLuint vbo;
+	GLfloat origin[] = {0, 0, 0};
+
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(origin), origin, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(shader->location[SHADER_ATT_POSITION]);
+	glVertexAttribPointer(shader->location[SHADER_ATT_POSITION], 3, GL_FLOAT,
+			GL_FALSE, sizeof(origin), 0);
+}
+
+void renderable_upload_to_gpu(Renderable *obj)
 {
 	glGenVertexArrays(1, &obj->vao);
 	glBindVertexArray(obj->vao);
 
-	obj->upload_to_gpu(obj->data, shader);
+	obj->upload_to_gpu(obj);
 	obj->memloc = MEMLOC_GPU;
 
 	glBindVertexArray(0); /* So we don't accidentally overwrite the VAO */
@@ -64,32 +79,29 @@ void light_upload_to_gpu(void *data, Shader *shader)
 	glUniform3fv(shader->location[SHADER_UNI_LIGHT_SPECULAR], 1, light->specular);
 }
 
-void mesh_render(void *self, Shader *shader)
+void mesh_render(Renderable *obj)
 {
-	Mesh *mesh = (Mesh *) self;
+	Mesh *mesh = (Mesh *) obj->data;
 
-	shader = shader;
 	glDrawRangeElements(GL_TRIANGLES, 0, mesh->num_vertices - 1,
 			mesh->num_indices, GL_UNSIGNED_INT, NULL);
 }
 
-void render_entity_list(Entity *ent, Shader *shader)
+void point_render(Renderable *obj)
 {
-	while(ent)
-	{
-		entity_render(ent, shader);
-		ent = ent->next;
-	}
+	obj = NULL;
+	glDrawArrays(GL_POINTS, 0, 1);
 }
 
-void entity_render(Entity *ent, Shader *shader)
+static void entity_render(Entity *ent)
 {
+	Shader *shader = ent->renderable->shader;
 	glmPushMatrix(&glmModelMatrix);
 
 	glmLoadIdentity(glmModelMatrix);
-	glmMultQuaternion(glmModelMatrix, ent->orientation);
 	glmTranslateVector(glmModelMatrix, ent->position);
-	glmScaleUniform(glmModelMatrix, ent->scale);
+	glmMultQuaternion(glmModelMatrix, ent->orientation);
+	glmScaleUniform(glmModelMatrix, ent->radius);
 
 	glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX], glmProjectionMatrix);
 	glmUniformMatrix(shader->location[SHADER_UNI_V_MATRIX], glmViewMatrix);
@@ -97,9 +109,20 @@ void entity_render(Entity *ent, Shader *shader)
 
 	glBindVertexArray(ent->renderable->vao);
 
-	ent->renderable->render(ent->renderable->data, shader);
+	ent->renderable->render(ent->renderable);
 
 	glBindVertexArray(0);
 
 	glmPopMatrix(&glmModelMatrix);
+}
+
+void render_entity_list(Entity *ent)
+{
+	while(ent)
+	{
+		if (ent->prev == NULL || ent->prev->renderable->shader != ent->renderable->shader)
+			glUseProgram(ent->renderable->shader->program);
+		entity_render(ent);
+		ent = ent->next;
+	}
 }

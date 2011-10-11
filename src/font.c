@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdarg.h>
 #include <ralloc.h>
 #include <GL/glew.h>
 #include <GL/gl.h>
@@ -244,6 +245,10 @@ Text *text_create(Font *font, const uint8_t *string, int size)
 	float x, y;
 	int i;
 
+	/* XXX Remove this */
+	if (string == NULL)
+		string = (const uint8_t *) "";
+
 	if (FT_Set_Char_Size(face, 0, size*64, 0, 0) != 0)
 	{
 		log_err("Error setting character size\n");
@@ -410,4 +415,28 @@ void text_destroy(Text *text)
 	glDeleteTextures(1, &text->texture);
 
 	ralloc_free(text);
+}
+
+void text_create_and_render(Shader *shader, Font *font, int x, int y, 
+		const char *fmt, ...)
+{
+	uint8_t *string;
+	va_list va;
+	Text *text;
+
+	va_start(va, fmt);
+	string = (uint8_t *) ralloc_vasprintf(NULL, fmt, va);
+	va_end(va);
+
+	if (string == NULL)
+		return;
+
+	text = text_create(font, string, 16); /* FIXME Argument */
+	ralloc_free(string);
+	if (text ==	NULL)
+		return;
+
+	text_upload_to_gpu(shader, text);
+	text_render(shader, text, x, y);
+	text_destroy(text);
 }

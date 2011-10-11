@@ -5,7 +5,6 @@
 
 typedef struct Vertex {
 	GLfloat x, y, z;
-	GLfloat nx, ny, nz;
 } Vertex;
 
 typedef Vertex Normal;

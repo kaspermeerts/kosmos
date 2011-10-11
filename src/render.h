@@ -8,8 +8,6 @@
 #include "camera.h"
 #include "solarsystem.h"
 
-typedef void (*upload_cb)(void *self, Shader *shader);
-typedef void (*render_cb)(void *self, Shader *shader);
 
 typedef struct Light {
 	Vec3 position; /* Position in model space */
@@ -20,10 +18,11 @@ typedef struct Light {
 } Light;
 
 typedef struct Renderable {
+	Shader *shader;
 	GLuint vao; /* Vertex Array Object */
 
-	upload_cb upload_to_gpu;
-	render_cb render;
+	void (*upload_to_gpu)(struct Renderable *o);
+	void (*render)(struct Renderable *o);
 
 	enum {MEMLOC_RAM, MEMLOC_GPU} memloc;
 
@@ -31,19 +30,22 @@ typedef struct Renderable {
 } Renderable;
 
 typedef struct Entity {
-	struct Entity *next;
+	struct Entity *prev, *next;
 	Vec3 position;
 	Quaternion orientation;
-	double scale;
+	double radius;
 
 	Renderable *renderable;
 } Entity;
 
-void render_entity_list(Entity *ent, Shader *shader);
-void entity_render(Entity *ent, Shader *shader);
-void mesh_upload_to_gpu(void *mesh, Shader *shader);
+void render_entity_list(Entity *ent);
 void light_upload_to_gpu(void *light, Shader *shader);
-void renderable_upload_to_gpu(Renderable *obj, Shader *shader);
-void mesh_render(void *self, Shader *shader);
+
+void renderable_upload_to_gpu(Renderable *obj);
+void mesh_upload_to_gpu(Renderable *obj);
+void point_upload_to_gpu(Renderable *obj);
+void renderable_render(Renderable *ent);
+void mesh_render(Renderable *obj);
+void point_render(Renderable *obj);
 
 #endif
