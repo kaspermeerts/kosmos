@@ -16,7 +16,7 @@ static const float AVERAGE_TIME = 1./20;
 static Font *font;
 static Shader *text_shader, *twod_shader;
 static bool inited;
-static GLuint graph_vbo;
+static GLuint graph_vbo, graph_vao;
 
 static struct STATS {
 	double start_time; /* When was the stats module inited */
@@ -37,11 +37,22 @@ void stats_begin(Font *f, Shader *text, Shader *simple)
 	memset(&STATS, '\0', sizeof(STATS));
 	STATS.start_time = al_get_time();
 	STATS.tock = al_get_time();
+	glGenVertexArrays(1, &graph_vao);
 	glGenBuffers(1, &graph_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, graph_vbo);
 	glBufferData(GL_ARRAY_BUFFER, 2*sizeof(Vertex2) * NUM_SAMPLES, NULL,
 			GL_STREAM_DRAW);
 
+	glBindVertexArray(graph_vao);
+	glEnableVertexAttribArray(twod_shader->location[SHADER_ATT_POSITION]);
+	glVertexAttribPointer(twod_shader->location[SHADER_ATT_POSITION], 2,
+			GL_FLOAT, GL_FALSE, sizeof(Vertex2C),
+			(void *) offsetof(Vertex2C, x));
+	glEnableVertexAttribArray(twod_shader->location[SHADER_ATT_COLOUR]);
+	glVertexAttribPointer(twod_shader->location[SHADER_ATT_COLOUR], 4,
+			GL_FLOAT, GL_FALSE, sizeof(Vertex2C),
+			(void *) offsetof(Vertex2C, r));
+	glBindVertexArray(0);
 	inited = true;
 }
 
@@ -51,6 +62,7 @@ void stats_end(void)
 		return;
 
 	glDeleteBuffers(1, &graph_vbo);
+	glDeleteVertexArrays(1, &graph_vao);
 }
 
 void stats_end_of_frame(void)
@@ -101,21 +113,14 @@ static void graph_render(void)
 		top->x = i;
 		top->y = sample*100.0*60;
 	}
+	glBindVertexArray(graph_vao);
 	glBindBuffer(GL_ARRAY_BUFFER, graph_vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(graph), graph, GL_STREAM_DRAW);
-
-	glEnableVertexAttribArray(twod_shader->location[SHADER_ATT_POSITION]);
-	glVertexAttribPointer(twod_shader->location[SHADER_ATT_POSITION], 2,
-			GL_FLOAT, GL_FALSE, sizeof(Vertex2C),
-			(void *) offsetof(Vertex2C, x));
-	glEnableVertexAttribArray(twod_shader->location[SHADER_ATT_COLOUR]);
-	glVertexAttribPointer(twod_shader->location[SHADER_ATT_COLOUR], 4,
-			GL_FLOAT, GL_FALSE, sizeof(Vertex2C),
-			(void *) offsetof(Vertex2C, r));
-	glDrawArrays(GL_LINES, 0, 2*NUM_SAMPLES);
-	glDisableVertexAttribArray(twod_shader->location[SHADER_ATT_COLOUR]);
-	glDisableVertexAttribArray(twod_shader->location[SHADER_ATT_POSITION]);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glDrawArrays(GL_LINES, 0, 2*NUM_SAMPLES);
+
+	glBindVertexArray(0);
 
 }
 
