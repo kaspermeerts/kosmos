@@ -53,12 +53,12 @@ int main(int argc, char **argv)
 	font = font_load(STRINGIFY(ROOT_PATH) "/data/DejaVuLGCSans.ttf");
 	if (font == NULL)
 		return 1;
-	text[0] = text_create(font, (const uint8_t *) "Latin", 14);
-	text[1] = text_create(font, (const uint8_t *) "Ελληνικό αλφάβητο", 14);
-	text[2] = text_create(font, (const uint8_t *) "кириллица", 14);
-	text[3] = text_create(font, (const uint8_t *) "∀☭∈R: ☭ ≥ ☭", 14);
-	text[4] = text_create(font, (const uint8_t *) "�", 14);
-	text[5] = text_create(font, (const uint8_t *) string, 14);
+	text[0] = text_create(font, "Latin", 14);
+	text[1] = text_create(font, "Ελληνικό αλφάβητο", 14);
+	text[2] = text_create(font, "кириллица", 14);
+	text[3] = text_create(font, "∀☭∈R: ☭ ≥ ☭", 14);
+	text[4] = text_create(font, "�", 14);
+	text[5] = text_create(font, string, 14);
 
 
 	for (i = 0; i < 6; i++)

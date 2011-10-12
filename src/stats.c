@@ -140,10 +140,10 @@ void stats_render(int width, int height)
 
 	glmLoadIdentity(glmModelMatrix);
 	glmTranslate(glmModelMatrix, 20, 20, 0);
-	text_create_and_render(text_shader, font, "FPS: %d",
+	text_create_and_render(text_shader, font, 16, "FPS: %d",
 			(int) (STATS.fps + 0.5));
 	glmTranslate(glmModelMatrix, 0, 20, 0);
-	text_create_and_render(text_shader, font, "Time: %f",
+	text_create_and_render(text_shader, font, 16, "Time: %f",
 			al_get_time() - STATS.start_time);
 
 	glUseProgram(twod_shader->program);

@@ -29,9 +29,9 @@ typedef struct Text {
 
 Font *font_load(const char *filename);
 void font_destroy(Font *font);
-Text *text_create(Font *font, const uint8_t *text, int size);
+Text *text_create(Font *font, const char *text, int size);
 void text_upload_to_gpu(Shader *shader, Text *text);
 void text_render(Shader *shader, Text *text);
 void text_destroy(Text *text);
-void text_create_and_render(Shader *shader, Font *font, const char *fmt, ...);
+void text_create_and_render(Shader *shader, Font *font, int size, const char *fmt, ...);
 #endif

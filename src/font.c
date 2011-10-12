@@ -233,8 +233,9 @@ static void blit_glyph(FT_BitmapGlyph glyph, GLubyte *image, int x, int y,
 	}
 }
 
-Text *text_create(Font *font, const uint8_t *string, int size)
+Text *text_create(Font *font, const char *char_string, int size)
 {
+	const uint8_t *string = (const uint8_t *) char_string;
 	Text *text;
 	FT_Face face = font->face;
 	FT_Glyph *glyph_string;
@@ -244,10 +245,6 @@ Text *text_create(Font *font, const uint8_t *string, int size)
 	size_t len;
 	float x, y;
 	int i;
-
-	/* XXX Remove this */
-	if (string == NULL)
-		string = (const uint8_t *) "";
 
 	if (FT_Set_Char_Size(face, 0, size*64, 0, 0) != 0)
 	{
@@ -425,20 +422,21 @@ void text_destroy(Text *text)
 	ralloc_free(text);
 }
 
-void text_create_and_render(Shader *shader, Font *font, const char *fmt, ...)
+void text_create_and_render(Shader *shader, Font *font, int size,
+		const char *fmt, ...)
 {
-	uint8_t *string;
+	char *string;
 	va_list va;
 	Text *text;
 
 	va_start(va, fmt);
-	string = (uint8_t *) ralloc_vasprintf(NULL, fmt, va);
+	string = ralloc_vasprintf(NULL, fmt, va);
 	va_end(va);
 
 	if (string == NULL)
 		return;
 
-	text = text_create(font, string, 16); /* FIXME Argument */
+	text = text_create(font, string, size);
 	ralloc_free(string);
 	if (text ==	NULL)
 		return;
