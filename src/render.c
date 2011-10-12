@@ -11,27 +11,21 @@ void mesh_upload_to_gpu(Renderable *obj)
 	Mesh *mesh = (Mesh *) obj->data;
 	Shader *shader = obj->shader;
 	/* Vertices */
-	glGenBuffers(1, &mesh->vertex_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, mesh->vertex_vbo);
-	glBufferData(GL_ARRAY_BUFFER, (size_t) mesh->num_vertices * sizeof(Vertex),
+	glGenBuffers(1, &mesh->vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbo);
+	glBufferData(GL_ARRAY_BUFFER, (size_t) mesh->num_vertices * sizeof(Vertex3N),
 			mesh->vertex, GL_STATIC_DRAW);
 	glEnableVertexAttribArray(shader->location[SHADER_ATT_POSITION]);
 	glVertexAttribPointer(shader->location[SHADER_ATT_POSITION], 3, GL_FLOAT,
-			GL_FALSE, sizeof(Vertex), 0);
-
-	/* Normals */
-	glGenBuffers(1, &mesh->normal_vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, mesh->normal_vbo);
-	glBufferData(GL_ARRAY_BUFFER, (size_t) mesh->num_normals * sizeof(Normal),
-			mesh->normal, GL_STATIC_DRAW);
+			GL_FALSE, sizeof(Vertex3N), (void *) offsetof(Vertex3N, x));
 	glEnableVertexAttribArray(shader->location[SHADER_ATT_NORMAL]);
 	glVertexAttribPointer(shader->location[SHADER_ATT_NORMAL], 3, GL_FLOAT,
-			GL_FALSE, sizeof(Normal), 0);
+			GL_FALSE, sizeof(Vertex3N), (void *) offsetof(Vertex3N, nx));
 
 	/* Indices */
 	glGenBuffers(1, &mesh->ibo);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (size_t) mesh->num_indices * 
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (size_t) mesh->num_indices *
 			sizeof(GLuint), mesh->index, GL_STATIC_DRAW);
 
 	return;
@@ -69,14 +63,18 @@ void light_upload_to_gpu(void *data, Shader *shader)
 	Vec3 newpos;
 	GLfloat pos3f[3];
 	Light *light = (Light *) data;
+	GLint pos_loc, ambi_loc, diff_loc, spec_loc;
 
 	newpos = glmTransformVector(glmViewMatrix, light->position);
 	pos3f[0] = newpos.x; pos3f[1] = newpos.y; pos3f[2] = newpos.z;
-
-	glUniform3fv(shader->location[SHADER_UNI_LIGHT_POS], 1, pos3f);
-	glUniform3fv(shader->location[SHADER_UNI_LIGHT_AMBIENT], 1, light->ambient);
-	glUniform3fv(shader->location[SHADER_UNI_LIGHT_DIFFUSE], 1, light->diffuse);
-	glUniform3fv(shader->location[SHADER_UNI_LIGHT_SPECULAR], 1, light->specular);
+	pos_loc = glGetUniformLocation(shader->program, "light_pos");
+	ambi_loc = glGetUniformLocation(shader->program, "light_ambient");
+	diff_loc = glGetUniformLocation(shader->program, "light_diffuse");
+	spec_loc = glGetUniformLocation(shader->program, "light_specular");
+	glUniform3fv(pos_loc, 1, pos3f);
+	glUniform3fv(ambi_loc, 1, light->ambient);
+	glUniform3fv(diff_loc, 1, light->diffuse);
+	glUniform3fv(spec_loc, 1, light->specular);
 }
 
 void mesh_render(Renderable *obj)

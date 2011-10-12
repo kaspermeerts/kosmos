@@ -58,33 +58,29 @@ Shader *shader_create(const char *vertex_file, const char *fragment_file)
 		show_info_log(shader->program, glGetProgramiv, glGetProgramInfoLog);
 		goto errorout;
 	}
-	glBindFragDataLocation(shader->program, 0, "out_colour");
+	glBindFragDataLocation(shader->program, 0, "oColour");
 
 	log_dbg("Loaded shader from %s and %s\n", path_filename(vertex_file),
 			path_filename(fragment_file));
 
 	show_info_log(shader->program, glGetProgramiv, glGetProgramInfoLog);
 
+	/* Attributes and uniform common to all shaders */
 	shader->location[SHADER_ATT_POSITION] =
-			glGetAttribLocation(shader->program, "in_position");
+			glGetAttribLocation(shader->program, "aPosition");
+	shader->location[SHADER_ATT_COLOUR] =
+			glGetAttribLocation(shader->program, "aColour");
 	shader->location[SHADER_ATT_NORMAL] =
-			glGetAttribLocation(shader->program, "in_normal");
+			glGetAttribLocation(shader->program, "aNormal");
 	shader->location[SHADER_ATT_TEXCOORD] =
-			glGetAttribLocation(shader->program, "in_texcoord");
+			glGetAttribLocation(shader->program, "aTexCoord");
 	shader->location[SHADER_UNI_M_MATRIX] =
-			glGetUniformLocation(shader->program, "model_matrix");
+			glGetUniformLocation(shader->program, "uModel");
 	shader->location[SHADER_UNI_V_MATRIX] =
-			glGetUniformLocation(shader->program, "view_matrix");
+			glGetUniformLocation(shader->program, "uView");
 	shader->location[SHADER_UNI_P_MATRIX] =
-			glGetUniformLocation(shader->program, "projection_matrix");
-	shader->location[SHADER_UNI_LIGHT_POS] =
-			glGetUniformLocation(shader->program, "light_pos");
-	shader->location[SHADER_UNI_LIGHT_AMBIENT] =
-			glGetUniformLocation(shader->program, "light_ambient");
-	shader->location[SHADER_UNI_LIGHT_DIFFUSE] =
-			glGetUniformLocation(shader->program, "light_diffuse");
-	shader->location[SHADER_UNI_LIGHT_SPECULAR] =
-			glGetUniformLocation(shader->program, "light_specular");
+			glGetUniformLocation(shader->program, "uProj");
+
 
 	return shader;
 

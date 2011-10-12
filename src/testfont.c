@@ -28,7 +28,6 @@ int main(int argc, char **argv)
 	Font *font;
 	Shader *shader;
 	const char *string;
-	Matrix proj;
 	int i;
 
 	if (argc < 2)
@@ -39,13 +38,17 @@ int main(int argc, char **argv)
 	init_allegro();
 	glewInit();
 
-	shader = shader_create(STRINGIFY(ROOT_PATH) "/data/text.v.glsl",
-	                       STRINGIFY(ROOT_PATH) "/data/text.f.glsl");
+	shader = shader_create(STRINGIFY(ROOT_PATH) "/data/2D_luminance.v.glsl",
+	                       STRINGIFY(ROOT_PATH) "/data/2D_luminance.f.glsl");
 	if (shader == NULL)
 		return 1;
 	glUseProgram(shader->program);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glmProjectionMatrix = glmNewMatrixStack();
+	glmViewMatrix = glmNewMatrixStack();
+	glmModelMatrix = glmNewMatrixStack();
 
 	font = font_load(STRINGIFY(ROOT_PATH) "/data/DejaVuLGCSans.ttf");
 	if (font == NULL)
@@ -64,14 +67,17 @@ int main(int argc, char **argv)
 	glClearColor(0xED/255., 0xEB/255., 0xEC/255., 1.0);
 	while(1)
 	{
-		glmLoadIdentity(&proj);
-		glmOrtho(&proj, 0, 400, 0, 400, -1, +1);
-		glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX], &proj);
+		glmLoadIdentity(glmProjectionMatrix);
+		glmOrtho(glmProjectionMatrix, 0, 400, 0, 400, -1, +1);
+		glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX], glmProjectionMatrix);
+		glmLoadIdentity(glmViewMatrix);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		for (i = 0; i < 6; i++)
 		{
 			int y = 400 - (text[i]->size * 1.5 * 76/72)*(i+1);
-			text_render(shader, text[i], 20, y);
+			glmLoadIdentity(glmModelMatrix);
+			glmTranslate(glmModelMatrix, 20, y, 0);
+			text_render(shader, text[i]);
 		}
 		al_flip_display();
 	}

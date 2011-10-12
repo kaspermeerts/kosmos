@@ -4,10 +4,49 @@
 #include <GL/gl.h>
 #include "mathlib.h"
 
-typedef struct Matrix {
-	double m[16];
-	struct Matrix *next;
-} Matrix;
+typedef struct Vertex3 {
+	GLfloat x, y, z;
+} Vertex3;
+
+typedef struct Vertex3N {
+	GLfloat x, y, z;
+	GLfloat nx, ny, nz;
+} Vertex3N;
+
+typedef struct Vertex3NT {
+	GLfloat x, y, z;
+	GLfloat nx, ny, nz;
+	GLfloat u, v;
+} Vertex3NT;
+
+typedef struct Vertex3T {
+	GLfloat x, y, z;
+	GLfloat u, v;
+} Vertex3T;
+
+typedef struct Vertex2 {
+	GLfloat x, y;
+} Vertex2;
+
+typedef struct Vertex2C {
+	GLfloat x, y;
+	GLclampf r, g, b, a;
+} Vertex2C;
+
+/* Colour and texture? The texture here is a luminance texture, with no colour
+ * information. This is e.g. used for text */
+typedef struct Vertex2CT {
+	GLfloat x, y;
+	GLfloat u, v;
+	GLclampf r, g, b, a;
+} Vertex2CT;
+
+typedef struct Vertex2T {
+	GLfloat x, y;
+	GLfloat u, v;
+} Vertex2T;
+
+typedef struct Matrix Matrix;
 
 extern Matrix *glmProjectionMatrix;
 extern Matrix *glmViewMatrix;

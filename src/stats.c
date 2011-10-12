@@ -9,65 +9,118 @@
 #include "stats.h"
 #include "font.h"
 #include "log.h"
-#include "mesh.h" /* XXX: For Vertex */
 
-#define NUM_SAMPLES 640
+#define NUM_SAMPLES 320
 
-static const float SAMPLE_TIME = 0.250;
+static const float AVERAGE_TIME = 1./20;
 static Font *font;
-static Shader *text_shader, *simple_shader;
+static Shader *text_shader, *twod_shader;
 static bool inited;
 static GLuint graph_vbo;
 
 static struct STATS {
-	double start_time;
+	double start_time; /* When was the stats module inited */
 	int frames;
 	double tock; /* The time when STATS.frames frames were rendered */
-	float fps;
+	float fps; /* Current FPS */
 	int cur_sample;
-	float sample[NUM_SAMPLES]; /* Sample of how long the rendering took */
+	double render_tock;
+	float sample[NUM_SAMPLES]; /* Time to render one frame */
 } STATS;
 
 void stats_begin(Font *f, Shader *text, Shader *simple)
 {
 	font = f;
 	text_shader = text;
-	simple_shader = simple;
+	twod_shader = simple;
 
 	memset(&STATS, '\0', sizeof(STATS));
 	STATS.start_time = al_get_time();
 	STATS.tock = al_get_time();
 	glGenBuffers(1, &graph_vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, graph_vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * NUM_SAMPLES, NULL,
-			GL_DYNAMIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 2*sizeof(Vertex2) * NUM_SAMPLES, NULL,
+			GL_STREAM_DRAW);
 
 	inited = true;
+}
+
+void stats_end(void)
+{
+	if (!inited)
+		return;
+
+	glDeleteBuffers(1, &graph_vbo);
 }
 
 void stats_end_of_frame(void)
 {
 	double tick;
 
-	STATS.frames++;
 	tick = al_get_time();
 
-	if (tick - STATS.tock > SAMPLE_TIME)
+	STATS.frames++;
+	STATS.sample[STATS.cur_sample] = tick - STATS.render_tock;
+	STATS.render_tock = al_get_time();
+	STATS.cur_sample = (STATS.cur_sample + 1) % NUM_SAMPLES;
+
+	if (tick - STATS.tock > AVERAGE_TIME)
 	{
-		STATS.sample[STATS.cur_sample] = (tick - STATS.tock) / STATS.frames;
-		STATS.cur_sample = (STATS.cur_sample + 1) % NUM_SAMPLES;
 		STATS.fps = STATS.frames / (tick - STATS.tock);
 		STATS.frames = 0;
 		STATS.tock = tick;
 	}
 }
 
-void stats_render(int width, int height)
+static void graph_render(void)
 {
-	Matrix projection;
-	Vertex graph[2 + NUM_SAMPLES];
+	Vertex2C graph[2*NUM_SAMPLES];
 	int i;
 
+	glmLoadIdentity(glmModelMatrix);
+	glmTranslate(glmModelMatrix, 20, 60, 0);
+	glmUniformMatrix(twod_shader->location[SHADER_UNI_M_MATRIX], glmModelMatrix);
+
+	for (i = 0; i < NUM_SAMPLES; i++)
+	{
+		float sample = STATS.sample[i];
+		Vertex2C *bottom = &graph[2*i], *top = &graph[2*i + 1] ;
+
+		bottom->r = 0;
+		bottom->g = 1.0;
+		bottom->b = 0;
+		bottom->a = 1;
+		bottom->x = i;
+		bottom->y = 0;
+
+		/* Go from green (infinite FPS) to red (<20 FPS) */
+		top->r = sample/(1./20.);
+		top->g = MAX(1.0 - top->r, 0); /* Don't go under 0 */
+		top->b = 0;
+		top->a = 1;
+		top->x = i;
+		top->y = sample*100.0*60;
+	}
+	glBindBuffer(GL_ARRAY_BUFFER, graph_vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(graph), graph, GL_STREAM_DRAW);
+
+	glEnableVertexAttribArray(twod_shader->location[SHADER_ATT_POSITION]);
+	glVertexAttribPointer(twod_shader->location[SHADER_ATT_POSITION], 2,
+			GL_FLOAT, GL_FALSE, sizeof(Vertex2C),
+			(void *) offsetof(Vertex2C, x));
+	glEnableVertexAttribArray(twod_shader->location[SHADER_ATT_COLOUR]);
+	glVertexAttribPointer(twod_shader->location[SHADER_ATT_COLOUR], 4,
+			GL_FLOAT, GL_FALSE, sizeof(Vertex2C),
+			(void *) offsetof(Vertex2C, r));
+	glDrawArrays(GL_LINES, 0, 2*NUM_SAMPLES);
+	glDisableVertexAttribArray(twod_shader->location[SHADER_ATT_COLOUR]);
+	glDisableVertexAttribArray(twod_shader->location[SHADER_ATT_POSITION]);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+}
+
+void stats_render(int width, int height)
+{
 	if (!inited)
 	{
 		log_err("Stats used before init\n");
@@ -76,40 +129,33 @@ void stats_render(int width, int height)
 
 	/* TODO renderer_set_2D or something */
 	glUseProgram(text_shader->program);
-	glmLoadIdentity(&projection);
-	glmOrtho(&projection, 0, width, 0, height, -1, 1);
-	glmUniformMatrix(text_shader->location[SHADER_UNI_P_MATRIX], &projection);
-	text_create_and_render(text_shader, font, 20, 20, "FPS: %d",
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	glmLoadIdentity(glmProjectionMatrix);
+	glmOrtho(glmProjectionMatrix, 0, width, 0, height, -1, 1);
+	glmUniformMatrix(text_shader->location[SHADER_UNI_P_MATRIX],
+			glmProjectionMatrix);
+
+	glmLoadIdentity(glmViewMatrix);
+
+	glmLoadIdentity(glmModelMatrix);
+	glmTranslate(glmModelMatrix, 20, 20, 0);
+	text_create_and_render(text_shader, font, "FPS: %d",
 			(int) (STATS.fps + 0.5));
-	text_create_and_render(text_shader, font, 20, 40, "Time: %f",
+	glmTranslate(glmModelMatrix, 0, 20, 0);
+	text_create_and_render(text_shader, font, "Time: %f",
 			al_get_time() - STATS.start_time);
 
-	glUseProgram(simple_shader->program);
-	glmUniformMatrix(simple_shader->location[SHADER_UNI_P_MATRIX], &projection);
-	glmLoadIdentity(&projection);
-	glmUniformMatrix(simple_shader->location[SHADER_UNI_V_MATRIX], &projection);
-	glmUniformMatrix(simple_shader->location[SHADER_UNI_M_MATRIX], &projection);
-	graph[0].x = 20 + NUM_SAMPLES;
-	graph[0].y = 60;
-	graph[0].z = 0;
-	graph[1].x = 20;
-	graph[1].y = 60;
-	graph[1].z = 0;
-	for (i = 0; i < NUM_SAMPLES; i++)
-	{
-		graph[i+2].x = 20 + i;
-		graph[i+2].y = 60 + 10*STATS.sample[i]*100.0*60;
-		graph[i+2].z = 0;
-	}
-	glBindBuffer(GL_ARRAY_BUFFER, graph_vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex)*(NUM_SAMPLES+2), graph,
-			GL_DYNAMIC_DRAW);
-	glEnableVertexAttribArray(simple_shader->location[SHADER_ATT_POSITION]);
-	glVertexAttribPointer(simple_shader->location[SHADER_ATT_POSITION], 3,
-			GL_FLOAT, GL_FALSE, sizeof(Vertex), NULL);
-	glDrawArrays(GL_LINE_STRIP, 0, NUM_SAMPLES+2);
-	glDisableVertexAttribArray(simple_shader->location[SHADER_ATT_POSITION]);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glUseProgram(twod_shader->program);
+	glmUniformMatrix(twod_shader->location[SHADER_UNI_P_MATRIX],
+			glmProjectionMatrix);
+	glmUniformMatrix(twod_shader->location[SHADER_UNI_V_MATRIX],
+			glmViewMatrix);
 
+	graph_render();
+
+	/* TODO: renderer_set_3D */
+	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_CULL_FACE);
 	return;
 }

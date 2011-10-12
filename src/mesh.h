@@ -2,12 +2,7 @@
 #define KOSMOS_MESH_H
 
 #include <GL/gl.h>
-
-typedef struct Vertex {
-	GLfloat x, y, z;
-} Vertex;
-
-typedef Vertex Normal;
+#include "glm.h"
 
 typedef struct TexCoord {
 	GLfloat u, v;
@@ -16,18 +11,10 @@ typedef struct TexCoord {
 typedef struct Mesh {
 	char *name;
 
+	GLuint vbo;
 	int num_vertices;
-	Vertex *vertex;
-	GLuint vertex_vbo;
+	Vertex3N *vertex;
 
-	int num_normals;
-	Normal *normal;
-	GLuint normal_vbo;
-#if 0 /* TODO: Textures :p */
-	int num_texcoords;
-	TexCoord *texcoord;
-	GLuint texcoord_vbo;
-#endif
 	GLenum type; /* Triangles or Quads */
 	int num_indices;
 	GLuint *index;

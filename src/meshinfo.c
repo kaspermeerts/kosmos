@@ -7,7 +7,7 @@
 int main(int argc, char **argv)
 {
 	Mesh *mesh;
-	
+
 	if (argc < 2)
 	{
 		fprintf(stderr, "Give a model filename\n");
@@ -20,7 +20,6 @@ int main(int argc, char **argv)
 
 	printf("Mesh %s\n", mesh->name);
 	printf("%d Vertices\n", mesh->num_vertices);
-	printf("%d Normals\n", mesh->num_normals);
 	printf("%d Triangles\n", mesh->num_indices / 3);
 	printf("%d\n", mesh->type);
 

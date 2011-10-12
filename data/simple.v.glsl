@@ -1,12 +1,12 @@
 #version 330 core
 
-uniform mat4 projection_matrix;
-uniform mat4 view_matrix;
-uniform mat4 model_matrix;
+uniform mat4 uProj;
+uniform mat4 uView;
+uniform mat4 uModel;
 
-in vec3 in_position;
+in vec3 aPosition;
 
 void main(void)
 {
-	gl_Position = projection_matrix * view_matrix * model_matrix * vec4(in_position, 1);
+	gl_Position = uProj * uView * uModel * vec4(aPosition, 1);
 }

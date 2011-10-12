@@ -42,7 +42,7 @@ int init_allegro(Camera *cam)
 
 	al_set_new_display_flags(ALLEGRO_WINDOWED | ALLEGRO_RESIZABLE |
 			ALLEGRO_OPENGL | ALLEGRO_OPENGL_3_0 );	
-	al_set_new_display_option(ALLEGRO_VSYNC, 0, ALLEGRO_SUGGEST);
+	al_set_new_display_option(ALLEGRO_VSYNC, 1, ALLEGRO_SUGGEST);
 
 	dpy = al_create_display(cam->left + cam->width, cam->bottom + cam->height);
 	glViewport(cam->left, cam->bottom, cam->width, cam->height);
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 	Font *font;
 	Light light;
 	Entity ent1, ent2;
-	Shader *shader, *shader_text, *shader_simple;
+	Shader *shader, *shader_text, *shader_2d;
 	Renderable teapot;
 	const char *filename;
 	Camera cam;
@@ -125,16 +125,16 @@ int main(int argc, char **argv)
 	if (shader == NULL)
 		return 1;
 
-	shader_text = shader_create(STRINGIFY(ROOT_PATH) "/data/text.v.glsl",
-	                            STRINGIFY(ROOT_PATH) "/data/text.f.glsl");
+	shader_text = shader_create(STRINGIFY(ROOT_PATH) "/data/2D_luminance.v.glsl",
+	                            STRINGIFY(ROOT_PATH) "/data/2D_luminance.f.glsl");
 	if (shader_text == NULL)
 		return 1;
 
-	shader_simple = shader_create(STRINGIFY(ROOT_PATH) "/data/simple.v.glsl",
-	                              STRINGIFY(ROOT_PATH) "/data/simple.f.glsl");
-	if (shader_simple == NULL)
+	shader_2d = shader_create(STRINGIFY(ROOT_PATH) "/data/2D_notexture.v.glsl",
+	                          STRINGIFY(ROOT_PATH) "/data/2D_notexture.f.glsl");
+	if (shader_2d == NULL)
 		return 1;
-shader = shader_simple;
+
 	glmProjectionMatrix = glmNewMatrixStack();
 	glmViewMatrix = glmNewMatrixStack();
 	glmModelMatrix = glmNewMatrixStack();
@@ -144,6 +144,7 @@ shader = shader_simple;
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_BLEND);
 	glCullFace(GL_BACK);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 	light.position = light_pos;
 	memcpy(light.ambient, light_ambient, sizeof(light_ambient));
@@ -173,7 +174,7 @@ shader = shader_simple;
 	ent2.prev = &ent1;
 	ent2.next = NULL;
 
-	stats_begin(font, shader_text, shader_simple);
+	stats_begin(font, shader_text, shader_2d);
 
 	/* Start rendering */
 	while(handle_input(ev_queue, &cam))
@@ -204,7 +205,6 @@ shader = shader_simple;
 		ent1.orientation = q;
 		render_entity_list(&ent1);
 
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		glUseProgram(shader_text->program);
 		glmLoadIdentity(glmProjectionMatrix);
 		glmOrtho(glmProjectionMatrix, 0, 1024, 0, 768, -1, 1);

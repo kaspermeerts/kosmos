@@ -8,6 +8,11 @@
 #include "glm.h"
 #include "mathlib.h"
 
+struct Matrix {
+	double m[16];
+	struct Matrix *next;
+};
+
 Matrix *glmProjectionMatrix;
 Matrix *glmViewMatrix;
 Matrix *glmModelMatrix;

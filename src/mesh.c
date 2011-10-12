@@ -13,7 +13,7 @@
 enum vertex_props {
 	PROP_X,
 	PROP_Y,
-	PROP_Z 
+	PROP_Z
 };
 
 struct face_types {
@@ -28,8 +28,8 @@ static int tesselate_cb(p_ply_argument argument);
 static int vertex_cb(p_ply_argument argument);
 static int face_cb(p_ply_argument argument);
 static void generate_normals(Mesh *mesh);
-static Normal calc_tri_normal(Vertex v1, Vertex v2, Vertex v3);
-static Normal calc_quad_normal(Vertex v1, Vertex v2, Vertex v3, Vertex v4);
+static Vec3 calc_tri_normal(Vertex3N v1, Vertex3N v2, Vertex3N v3);
+static Vec3 calc_quad_normal(Vertex3N v1, Vertex3N v2, Vertex3N v3, Vertex3N v4);
 
 Mesh *mesh_import(const char *filename)
 {
@@ -77,7 +77,7 @@ static bool mesh_load_ply(Mesh *mesh, const char *filename)
 		goto errorout;
 
 	ply_close(ply);
-	
+
 	return true;
 errorout:
 	if (ply != NULL)
@@ -127,7 +127,7 @@ static bool mesh_ply_second_pass(Mesh *mesh, p_ply ply)
 
 	mesh->index = ralloc_array(mesh, GLuint, mesh->num_indices);
 	mesh->num_vertices = num_vertices;
-	mesh->vertex = ralloc_array(mesh, Vertex, mesh->num_vertices);
+	mesh->vertex = ralloc_array(mesh, Vertex3N, mesh->num_vertices);
 
 	if (ply_read(ply) != 1)
 		return false;
@@ -190,7 +190,7 @@ static int face_cb(p_ply_argument argument)
 	Mesh *mesh;
 	void *pdata;
 	long index, len, value_index, nvert;
-	
+
 	ply_get_argument_user_data(argument, &pdata, NULL);
 	mesh = (Mesh *)pdata;
 	if (mesh->type == GL_TRIANGLES)
@@ -202,14 +202,14 @@ static int face_cb(p_ply_argument argument)
 
 	ply_get_argument_element(argument, NULL, &index);
 	ply_get_argument_property(argument, NULL, &len, &value_index);
-	
+
 	if (len != nvert)
 	{
 		/* TODO: Tesselate? */
 		log_err("Malformed face\n");
 		return 0;
 	}
-	
+
 	if (value_index == -1)
 		return 1;
 
@@ -223,7 +223,7 @@ static void generate_normals(Mesh *mesh)
 {
 	struct {
 		int num_faces;
-		Normal normal_sum;
+		Vec3 normal_sum;
 	} *normal_record;
 	int i;
 
@@ -236,7 +236,7 @@ static void generate_normals(Mesh *mesh)
 	{
 		for (i = 0; i < mesh->num_indices; i+=3)
 		{
-			Normal normal;
+			Vec3 normal;
 			GLuint i1, i2, i3;
 
 			i1 = mesh->index[i + 0];
@@ -266,7 +266,7 @@ static void generate_normals(Mesh *mesh)
 	{
 		for (i = 0; i < mesh->num_indices; i+=4)
 		{
-			Normal normal;
+			Vec3 normal;
 			GLuint i1, i2, i3, i4;
 
 			i1 = mesh->index[i + 0];
@@ -300,8 +300,6 @@ static void generate_normals(Mesh *mesh)
 	}
 
 	/* 3. Distribute the normals over the vertices */
-	mesh->num_normals = mesh->num_vertices;
-	mesh->normal = ralloc_array(mesh, Normal, mesh->num_normals);
 	for (i = 0; i < mesh->num_vertices; i++)
 	{
 		double x, y, z, d;
@@ -313,9 +311,9 @@ static void generate_normals(Mesh *mesh)
 		if (normal_record[i].num_faces == 0)
 			continue; /* FIXME: What to do about lonely vertices? */
 
-		mesh->normal[i].x = (GLfloat) (x / d);
-		mesh->normal[i].y = (GLfloat) (y / d);
-		mesh->normal[i].z = (GLfloat) (z / d);
+		mesh->vertex[i].nx = (GLfloat) (x / d);
+		mesh->vertex[i].ny = (GLfloat) (y / d);
+		mesh->vertex[i].nz = (GLfloat) (z / d);
 	}
 
 	ralloc_free(normal_record);
@@ -323,10 +321,10 @@ static void generate_normals(Mesh *mesh)
 
 /* WARNING: despite the name, the returned normal is not yet
  * normalized */
-static Normal calc_tri_normal(Vertex p1, Vertex p2, Vertex p3)
+static Vec3 calc_tri_normal(Vertex3N p1, Vertex3N p2, Vertex3N p3)
 {
 	Vec3 v1, v2, v3;
-	Normal n;
+	Vec3 n;
 
 	v1.x = p2.x - p1.x;
 	v1.y = p2.y - p1.y;
@@ -345,10 +343,10 @@ static Normal calc_tri_normal(Vertex p1, Vertex p2, Vertex p3)
 	return n;
 }
 
-static Normal calc_quad_normal(Vertex p1, Vertex p2, Vertex p3, Vertex p4)
+static Vec3 calc_quad_normal(Vertex3N p1, Vertex3N p2, Vertex3N p3, Vertex3N p4)
 {
 	Vec3 v1, v2, v3;
-	Normal n;
+	Vec3 n;
 
 	v1.x = p3.x - p1.x;
 	v1.y = p3.y - p1.y;
@@ -378,7 +376,7 @@ void mesh_unitize(Mesh *mesh)
 
 	for (i = 0; i < mesh->num_vertices; i++)
 	{
-		Vertex v = mesh->vertex[i];
+		Vertex3N v = mesh->vertex[i];
 
 		if (xmin > v.x)
 			xmin = v.x;

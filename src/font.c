@@ -351,10 +351,13 @@ Text *text_create(Font *font, const uint8_t *string, int size)
 	text->vertex[3].u = 0;
 	text->vertex[3].v = 1;
 
-	text->num_vertices = 4;
-	text->colour[0] = 0.0;
-	text->colour[1] = 0.0;
-	text->colour[2] = 1.0;
+	for (i = 0; i < 4; i++)
+	{
+		text->vertex[i].r = 0;
+		text->vertex[i].g = 0;
+		text->vertex[i].b = 1;
+		text->vertex[i].a = 1;
+	}
 
 	return text;
 }
@@ -366,16 +369,21 @@ void text_upload_to_gpu(Shader *shader, Text *text)
 
 	glGenBuffers(1, &text->vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, text->vbo);
-	glBufferData(GL_ARRAY_BUFFER, text->num_vertices*sizeof(struct TextVertex),
+
+	glBufferData(GL_ARRAY_BUFFER, 4*sizeof(Vertex2CT),
 			text->vertex, GL_STATIC_DRAW);
 	glEnableVertexAttribArray(shader->location[SHADER_ATT_POSITION]);
-	glVertexAttribPointer(shader->location[SHADER_ATT_POSITION], 2, GL_FLOAT,
-			GL_FALSE, sizeof(struct TextVertex),
-			(void *) offsetof(struct TextVertex, x));
+	glVertexAttribPointer(shader->location[SHADER_ATT_POSITION], 2,
+			GL_FLOAT, GL_FALSE, sizeof(Vertex2CT),
+			(void *) offsetof(Vertex2CT, x));
+	glEnableVertexAttribArray(shader->location[SHADER_ATT_COLOUR]);
+	glVertexAttribPointer(shader->location[SHADER_ATT_COLOUR], 4,
+			GL_FLOAT, GL_FALSE, sizeof(Vertex2CT),
+			(void *) offsetof(Vertex2CT, r));
 	glEnableVertexAttribArray(shader->location[SHADER_ATT_TEXCOORD]);
-	glVertexAttribPointer(shader->location[SHADER_ATT_TEXCOORD], 2, GL_FLOAT,
-			GL_FALSE, sizeof(struct TextVertex),
-			(void *) offsetof(struct TextVertex, u));
+	glVertexAttribPointer(shader->location[SHADER_ATT_TEXCOORD], 2,
+			GL_FLOAT, GL_FALSE, sizeof(Vertex2CT),
+			(void *) offsetof(Vertex2CT, u));
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -383,7 +391,7 @@ void text_upload_to_gpu(Shader *shader, Text *text)
 	glGenTextures(1, &text->texture);
 	glBindTexture(GL_TEXTURE_2D, text->texture);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, text->width, text->height, 
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, text->width, text->height,
 			0, GL_RED, GL_UNSIGNED_BYTE, text->texture_image);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -393,17 +401,17 @@ void text_upload_to_gpu(Shader *shader, Text *text)
 	ralloc_free(text->texture_image);
 }
 
-void text_render(Shader *shader, Text *text, int x, int y)
+void text_render(Shader *shader, Text *text)
 {
-	glUniform1i(glGetUniformLocation(shader->program, "text_texture"), 0);
-	glUniform3fv(glGetUniformLocation(shader->program, "text_colour"),
-		1, text->colour);
-	glUniform2i(glGetUniformLocation(shader->program, "text_location"), x, y);
+	glUniform1i(glGetUniformLocation(shader->program, "uTexture"), 0);
+	glmUniformMatrix(shader->location[SHADER_UNI_P_MATRIX], glmProjectionMatrix);
+	glmUniformMatrix(shader->location[SHADER_UNI_V_MATRIX], glmViewMatrix);
+	glmUniformMatrix(shader->location[SHADER_UNI_M_MATRIX], glmModelMatrix);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, text->texture);
 	glBindVertexArray(text->vao);
-	glDrawArrays(GL_QUADS, 0, text->num_vertices);
+	glDrawArrays(GL_QUADS, 0, 4);
 	glBindVertexArray(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -417,8 +425,7 @@ void text_destroy(Text *text)
 	ralloc_free(text);
 }
 
-void text_create_and_render(Shader *shader, Font *font, int x, int y, 
-		const char *fmt, ...)
+void text_create_and_render(Shader *shader, Font *font, const char *fmt, ...)
 {
 	uint8_t *string;
 	va_list va;
@@ -437,6 +444,6 @@ void text_create_and_render(Shader *shader, Font *font, int x, int y,
 		return;
 
 	text_upload_to_gpu(shader, text);
-	text_render(shader, text, x, y);
+	text_render(shader, text);
 	text_destroy(text);
 }

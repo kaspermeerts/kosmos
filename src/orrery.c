@@ -133,7 +133,7 @@ int main(int argc, char **argv)
 	                              STRINGIFY(ROOT_PATH) "/data/simple.f.glsl");
 	if (shader_simple == NULL)
 		return 1;
-	
+
 	glmProjectionMatrix = glmNewMatrixStack();
 	glmViewMatrix = glmNewMatrixStack();
 	glmModelMatrix = glmNewMatrixStack();
@@ -152,7 +152,7 @@ int main(int argc, char **argv)
 	planet.data = mesh;
 	planet.upload_to_gpu = mesh_upload_to_gpu;
 	planet.render = mesh_render;
-	planet.shader = shader_light; //shader_light;
+	planet.shader = shader_light;
 	renderable_upload_to_gpu(&planet);
 
 	/* Transformation matrices */
@@ -164,7 +164,7 @@ int main(int argc, char **argv)
 		void *ctx;
 		Entity *renderlist, *prev;
 
-		t += 0.25* 86400;
+		t += 365*86400;
 
 		/* Physics stuff */
 		solsys_update(solsys, t);
